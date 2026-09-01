@@ -2,7 +2,7 @@
 
 **Working title:** *Luna* (cat searching campus for her missing human)
 **Genre:** Turn-based battle game (Slay-the-Spire-style run structure, JRPG-style menu combat)
-**Platform:** Web app (browser)
+**Platform:** Desktop app (Python + Pygame)
 
 ---
 
@@ -77,14 +77,16 @@ Luna's resources (focus) are limited. Every turn, the player chooses between spe
 
 ## 5. Technical Approach (proposed stack)
 
-**React + TypeScript**, with battle logic written as a **pure state machine** (no game engine).
+**Python + Pygame**, with battle logic written as a **pure state machine** (Pygame handles only input and drawing, not game logic).
 
 Rationale:
 - A turn-based game *is* a state machine: menu → submenu → resolve → next turn.
-- React renders whatever the current state is; game logic stays pure and testable.
-- Reads cleanly as a "web app" for a senior project, and avoids fighting a realtime game engine (Phaser) that doesn't fit turn-based menus.
+- Python is already familiar territory, so the plan skips the multi-week stack-learning phase entirely.
+- Game logic stays pure and testable (plain Python classes/functions, no framework).
+- A turn-based game never stresses Pygame's limits — 2D drawing, menus, and click handling are exactly its comfort zone.
+- Deliverable runs with a single command (`python main.py`) — easy to demo and easy to explain.
 
-*Note: with little prior web-dev experience, the first several weeks are dedicated to learning the stack. That learning curve is expected and budgeted for below.*
+*Note: the one external constraint to check is whether the seminar expects a browser deliverable specifically. If not, this stack removes the steepest part of the original plan's risk.*
 
 ---
 
@@ -92,13 +94,13 @@ Rationale:
 
 **Build order principle: combat fun first, then systems, then map, then polish — so a playable demo always exists.**
 
-- **Weeks 1–4:** Learn React + TypeScript; scaffold the project. Then build **one battle** — Attack, one enemy, one damage formula, focus + Rest. *If this isn't fun, everything changes here.*
-- **Weeks 5–7:** Full combat system — all statuses, all instincts, enemy AI with intent telegraphing, turn order + agility + dodge.
-- **Weeks 8–9:** Items + inventory UI + the focus/item/heal economy balance.
-- **Weeks 10–11:** Clickable campus map + run structure + seeded human location.
-- **Week 12:** Enemies per building + first boss.
-- **Weeks 13–14:** Save/serialization, seed polish, UI + art pass (flat geometric cats).
-- **Weeks 14–15:** Playtesting, balance, bug fixes, demo video, presentation prep.
+- **Weeks 1–2:** Scaffold the Pygame project (window, draw loop, input handling). Then build **one battle** — Attack, one enemy, one damage formula, focus + Rest. *If this isn't fun, everything changes here.*
+- **Weeks 3–5:** Full combat system — all statuses, all instincts, enemy AI with intent telegraphing, turn order + agility + dodge.
+- **Weeks 6–7:** Items + inventory UI + the focus/item/heal economy balance.
+- **Weeks 8–9:** Clickable campus map + run structure + seeded human location.
+- **Week 10:** Enemies per building + first boss.
+- **Weeks 11–13:** Save/serialization, seed polish, UI + art pass (flat geometric cats).
+- **Weeks 13–15:** Playtesting, balance, bug fixes, demo video, presentation prep.
 
 ### Cut list (cut first if time runs out)
 Steal · Nine Lives · bosses beyond the first · walkable movement · sound
@@ -106,7 +108,7 @@ Steal · Nine Lives · bosses beyond the first · walkable movement · sound
 ---
 
 ## 7. Open Questions / Next Decisions
-- Final stack confirmation after the learning-curve estimate.
+- Confirm with the seminar that a desktop (non-browser) demo is acceptable — the one external constraint that could override the stack choice.
 - Exact status effect numbers and formulas (balance pass).
 - Which enemies live in which buildings.
 - Whether Steal stays a must-have or moves to the stretch list.

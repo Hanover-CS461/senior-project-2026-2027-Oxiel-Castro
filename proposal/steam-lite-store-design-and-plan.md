@@ -12,7 +12,7 @@ See `luna-design-and-plan.md` for the primary project.
 
 Everyone knows Steam. *Steam-lite* is a storefront-shaped catalog site: curated rows on the home page ("New & Trending," "Top Sellers," "Staff Picks"), a browsable catalog with genre/tag filters and search, and game detail pages that end in a written review. Your own reviews, your own catalog — served from a real database.
 
-Why this works as a backup: it's the most visually impressive of the backup options and the heaviest pure React/TypeScript practice — a storefront is nothing but UI. The database fits this idea more naturally than any other. It shares Luna's stack (so it shares the stack risk — it's the "if I'm going to rebuild, I want it to look great" option, not the "escape the web" option).
+Why this works as a backup: it's the most visually impressive of the backup options and the heaviest pure React/TypeScript practice — a storefront is nothing but UI. The database fits this idea more naturally than any other. Note: it no longer shares Luna's stack — Luna moved to Python + Pygame, so Steam-lite is now the only web/React option. That makes it the "if I'm going to rebuild, I want it to look great" option, not the "escape the web" option — it carries its own web learning curve, independent of Luna.
 
 ---
 
