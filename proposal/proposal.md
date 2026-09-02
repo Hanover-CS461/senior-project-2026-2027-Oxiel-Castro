@@ -1,3 +1,6 @@
+---
+---
+
 # Luna: A Turn-Based Cat RPG at Hanover College
 
 **Working/story title:** *Luna — a Hanover College Mystery* (a cat searching campus for her missing human)
