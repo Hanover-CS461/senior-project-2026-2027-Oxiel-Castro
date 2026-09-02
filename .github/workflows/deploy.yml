@@ -24,4 +24,12 @@ jobs:
         uses: actions/upload-pages-artifact@v3
         with:
           path: './proposal/_site'
-      
+  deploy-pages:
+    runs-on: ubuntu-latest
+    needs: build-docs
+    permissions:
+      pages: write
+      id-token: write
+    steps:
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v4
