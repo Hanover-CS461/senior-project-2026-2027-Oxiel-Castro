@@ -1,5 +1,7 @@
 ---
+layout: default
 ---
+
 
 # Luna: A Turn-Based Cat RPG at Hanover College
 

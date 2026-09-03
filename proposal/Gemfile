@@ -10,4 +10,13 @@ gem "jekyll-relative-links"
 
 gem "jekyll-remote-theme"
 
+gem "jekyll-avatar"
+
+gem "jekyll-feed"
+
+gem "jekyll-github-metadata"
+
+gem "jekyll-include-cache"
+
 gem "jekyll-seo-tag"
+gem "jekyll-sitemap"
