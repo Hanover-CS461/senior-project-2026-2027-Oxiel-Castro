@@ -35,7 +35,10 @@ class Game:
         self.screen.blit(self.background, (0, 0))
         title_surface = self.title_font.render("Luna - a Hanover College Mystery", True, (0,0,0))
         title_rect = title_surface.get_rect(center = (self.screen.get_width() // 2, 90))
+        title_surface2 = self.title_font.render("Luna - a Hanover College Mystery", True, (174,27,51))
+        title_rect2 = title_surface2.get_rect(center=(self.screen.get_width() // 2, 88), left=(title_rect.left + 2))
         self.screen.blit(title_surface, title_rect)
+        self.screen.blit(title_surface2, title_rect2)
         for button in self.buttons:
             button.draw(self.screen, self.font)
 
@@ -62,6 +65,3 @@ class Game:
         
 if __name__ == "__main__":
     Game().run()
-
-
-
