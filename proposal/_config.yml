@@ -1,0 +1,6 @@
+lsi: false
+remote_theme: benbalter/retlab
+
+plugins:
+  - jekyll-relative-links
+  - jekyll-remote-theme
