@@ -1,4 +1,4 @@
 ---
 ---
 
-[Proposal](./proposal.md)
+[Proposal](./proposal.md) | [Slides](./slides/slides.html)

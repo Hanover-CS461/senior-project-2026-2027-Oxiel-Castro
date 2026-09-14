@@ -2,6 +2,9 @@ lsi: false
 baseurl: "/senior-project-2026-2027-Oxiel-Castro"
 remote_theme: benbalter/retlab
 
+exclude:
+  - slides
+
 plugins:
   - jekyll-relative-links
   - jekyll-remote-theme
