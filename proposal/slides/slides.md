@@ -1,7 +1,8 @@
 ---
 marp: true
-theme: default
+theme: wave
 paginate: true
+transition: fade 0.3s
 ---
 
 <!--
@@ -17,11 +18,11 @@ paginate: true
 
 # Luna: A Turn-Based Cat RPG
 
-My senior project at Hanover College
+My senior project at Hanover
 
 ---
 
-## The Problem
+## The Story
 
 <!-- Replace this with your own text -->
 
@@ -51,6 +52,7 @@ My senior project at Hanover College
 ## Demo
 
 <!-- Demo goes here -->
+- Run the game
 
 ---
 

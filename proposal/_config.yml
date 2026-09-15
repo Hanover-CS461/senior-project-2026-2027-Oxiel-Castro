@@ -2,6 +2,14 @@ lsi: false
 baseurl: "/senior-project-2026-2027-Oxiel-Castro"
 remote_theme: benbalter/retlab
 
+title: Luna - A Turn-Based Cat RPG
+description: A Hanover College senior project
+lang: en-US
+
+nav_pages:
+  - index.md
+  - proposal.md
+
 exclude:
   - slides
 

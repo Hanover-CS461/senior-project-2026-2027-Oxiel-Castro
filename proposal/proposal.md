@@ -1,5 +1,6 @@
 ---
 layout: default
+title: Proposal
 ---
 
 
@@ -24,11 +25,43 @@ layout: default
 - **Seeded, replayable runs** — clickable campus map, escalating building-by-building battles, a boss per building, and a final boss when the human is found.
 - **Out-of-combat Investigation** — finding items and clues between battles (kept separate from in-combat Steal).
 
-Sections 2–5 detail the fiction, core design idea, core systems, and run structure.
+Sections 3–6 detail the fiction, core design idea, core systems, and run structure.
 
 ---
 
-## 2. Fiction & Hook
+## 2. High-Level Overview
+
+A run is a single loop: search campus for clues, fight escalating battles in each building, and reach the human before Luna is defeated. Every run is seeded, so the human's location (and thus the path to victory) changes while staying reproducible on demand.
+
+```
+Run flow (seeded each run)
+==========================
+ Campus map ──► Choose a building ──► Clues + battles (escalating)
+                                          │
+                                   boss per building
+                                          │
+                                human found? ── no ──► next building
+                                          │ yes
+                                    final boss ──► win
+```
+
+The codebase mirrors that structure with a clean split between presentation and logic — pygame handles input and drawing only, while the battle is a pure state machine that can be tested without the window:
+
+```
+Architecture
+============
+ game/main.py    UI, input, drawing (pygame only)
+      │  calls
+      ▼
+ game/battle.py  pure battle logic (state machine, no pygame)
+      │  uses
+      ▼
+ game/config.py  constants · game/ui.py  widgets · game/sprites.py  art
+```
+
+---
+
+## 3. Fiction & Hook
 
 Luna is a black shorthair cat with a thief's look — curious and quick on her feet. Her human has gone missing somewhere on **Hanover College's campus**. Each run, Luna searches the campus (a clickable map of buildings) for clues and fights the creatures standing in her way. The human's location is **seeded randomly each run**, which gives the game replayability and lets us reproduce a good demo on demand.
 
@@ -36,7 +69,7 @@ Why this works for a senior project: it's a real, named place the whole seminar 
 
 ---
 
-## 3. Core Design Idea
+## 4. Core Design Idea
 
 > **"Act, or refuel?"**
 
@@ -44,7 +77,7 @@ Luna's resources (focus) are limited. Every turn, the player chooses between spe
 
 ---
 
-## 4. Core Systems
+## 5. Core Systems
 
 ### Luna's stats
 - **Agility** — a single stat with two outputs:
@@ -86,7 +119,7 @@ Luna's resources (focus) are limited. Every turn, the player chooses between spe
 
 ---
 
-## 5. Run Structure
+## 6. Run Structure
 
 1. Clickable **campus map** → choose a building.
 2. Each building = a sequence of battles/clues, escalating difficulty.
@@ -97,44 +130,53 @@ Luna's resources (focus) are limited. Every turn, the player chooses between spe
 
 ---
 
-## 6. Similar Existing Solutions
+## 7. Similar Existing Solutions
 
 Luna sits at the intersection of several well-known games; the table below summarizes how they compare, and the prose notes what Luna borrows and what it changes.
 
 | Solution | Combat model | Progression | What Luna takes | What Luna changes |
 |---|---|---|---|---|
-| Slay the Spire [1] | Turn-based card deck | Seeded roguelike runs | Run structure, seeded runs, escalating boss fights | Menu combat instead of deck-building; a real, named campus setting instead of abstract floors |
-| Pokémon [2] | Turn-based menu | Linear JRPG | Menu commands, turn order, status effects, in-battle items | Roguelike runs instead of permanent progression; adds the Focus/Rest resource economy |
-| Cat Quest [3] | Real-time action | Open world | Cat protagonist and RPG systems | Turn-based and roguelike instead of an action RPG |
-| Stray [4] | None (adventure/puzzle) | Linear narrative | Cat protagonist, "search the world" premise | Adds combat and replayable runs |
+| Slay the Spire [[1]](#ref-1) | Turn-based card deck | Seeded roguelike runs | Run structure, seeded runs, escalating boss fights | Menu combat instead of deck-building; a real, named campus setting instead of abstract floors |
+| Pokémon [[2]](#ref-2) | Turn-based menu | Linear JRPG | Menu commands, turn order, status effects, in-battle items | Roguelike runs instead of permanent progression; adds the Focus/Rest resource economy |
+| Cat Quest [[3]](#ref-3) | Real-time action | Open world | Cat protagonist and RPG systems | Turn-based and roguelike instead of an action RPG |
+| Stray [[4]](#ref-4) | None (adventure/puzzle) | Linear narrative | Cat protagonist, "search the world" premise | Adds combat and replayable runs |
 
-**Slay the Spire [1]** is the direct inspiration for Luna's run structure: procedurally generated runs, escalating floors, and a boss at the end. The key difference is the combat layer — Slay the Spire builds a deck of cards each run, while Luna keeps a fixed JRPG-style menu and instead centers its variety on the Focus/Rest tension (which plays a role similar to Slay the Spire's energy economy and rest sites). Luna also swaps Slay the Spire's abstract spire for a real, recognizable campus, which gives each run a narrative goal beyond climbing.
+**Slay the Spire [[1]](#ref-1)** is the direct inspiration for Luna's run structure: procedurally generated runs, escalating floors, and a boss at the end. The key difference is the combat layer — Slay the Spire builds a deck of cards each run, while Luna keeps a fixed JRPG-style menu and instead centers its variety on the Focus/Rest tension (which plays a role similar to Slay the Spire's energy economy and rest sites). Luna also swaps Slay the Spire's abstract spire for a real, recognizable campus, which gives each run a narrative goal beyond climbing.
 
-**Pokémon [2]** is the inspiration for the menu-combat layer: moves with different damage/accuracy, turn order, status effects, and consumable items in battle. Luna differs in that progression is per-run rather than permanent — there is no growing a team across sessions. Pokémon also lacks a resource-replenishment risk like Rest; its closest analogue (per-move PP limits) constrains *which* moves you use, not *when* you refuel.
+**Pokémon [[2]](#ref-2)** is the inspiration for the menu-combat layer: moves with different damage/accuracy, turn order, status effects, and consumable items in battle. Luna differs in that progression is per-run rather than permanent — there is no growing a team across sessions. Pokémon also lacks a resource-replenishment risk like Rest; its closest analogue (per-move PP limits) constrains *which* moves you use, not *when* you refuel.
 
-**Cat Quest [3]** shares the most with Luna on surface appeal: a cat protagonist in an RPG. But Cat Quest is a real-time action RPG in an open world, whereas Luna is turn-based with a roguelike run structure. Cat Quest demonstrates that the cat-fantasy angle is proven, without competing directly with Luna's mechanics.
+**Cat Quest [[3]](#ref-3)** shares the most with Luna on surface appeal: a cat protagonist in an RPG. But Cat Quest is a real-time action RPG in an open world, whereas Luna is turn-based with a roguelike run structure. Cat Quest demonstrates that the cat-fantasy angle is proven, without competing directly with Luna's mechanics.
 
-**Stray [4]** proves the premise — a lone cat navigating a world on its own — resonates with players, and is the closest match in tone. Mechanically it is the furthest from Luna: a 3D adventure/puzzle platformer with no combat at all. Luna keeps the "cat with a mission" fantasy but replaces exploration-and-puzzle play with turn-based battle.
+**Stray [[4]](#ref-4)** proves the premise — a lone cat navigating a world on its own — resonates with players, and is the closest match in tone. Mechanically it is the furthest from Luna: a 3D adventure/puzzle platformer with no combat at all. Luna keeps the "cat with a mission" fantasy but replaces exploration-and-puzzle play with turn-based battle.
 
-On the development side, the Pygame documentation [5] and Pygame tutorial content [6] were used to inform the technical approach below, and a framework comparison between Godot and Pygame [7] was considered when choosing the stack.
+On the development side, the Pygame documentation [[5]](#ref-5) and Pygame tutorial content [[6]](#ref-6) were used to inform the technical approach below, and a framework comparison between Godot and Pygame [[7]](#ref-7) was considered when choosing the stack.
 
 ---
 
-## 7. Technical Approach (proposed stack)
+## 8. Technical Approach (proposed stack)
 
-**Python + Pygame [5]**, with battle logic written as a **pure state machine** (Pygame handles only input and drawing, not game logic).
+**Python + Pygame [[5]](#ref-5)**, with battle logic written as a **pure state machine** (Pygame handles only input and drawing, not game logic).
 
 Rationale:
 - A turn-based game *is* a state machine: menu → submenu → resolve → next turn.
 - Python is already familiar territory, so the plan skips the multi-week stack-learning phase entirely.
 - Game logic stays pure and testable (plain Python classes/functions, no framework).
-- A turn-based game never stresses Pygame's limits — 2D drawing, menus, and click handling are exactly its comfort zone [5].
+- A turn-based game never stresses Pygame's limits — 2D drawing, menus, and click handling are exactly its comfort zone [[5]](#ref-5).
 - Deliverable runs with a single command (`python main.py`) — easy to demo and easy to explain.
-- The main alternative, Godot, was considered and set aside: its built-in scene/UI tools would help, but the learning curve and the switch away from Python outweigh the benefit for a turn-based game [7].
+- The main alternative, Godot, was considered and set aside: its built-in scene/UI tools would help, but the learning curve and the switch away from Python outweigh the benefit for a turn-based game [[7]](#ref-7).
+
+### What I need to learn
+Most of the battle systems I already know how to build (state machines, menus, damage math are plain Python). The genuinely new territory is the presentation and delivery layers:
+
+- **Pygame's audio system** — `pygame.mixer` for sound effects and `pygame.mixer.music` for looping background tracks, plus how to guard the mixer on machines with no audio device.
+- **Spritesheet animation** — cropping frames from a sheet, timing them with the game clock, and hooking animation to battle events (attack, dodge, damage).
+- **Jekyll, Liquid, and the retlab theme** — building and customizing the project site: navigation config, custom SASS for table/component styling, and publishing through GitHub Pages.
+- **MARP** — writing and exporting the presentation deck from Markdown, and wiring it into the site build.
+- **Balancing numbers** — tuning the Focus economy, dodge chances, and status durations so the "act or refuel" tension actually feels tight rather than arbitrary.
 
 ---
 
-## 8. Semester Plan (~10 weeks)
+## 9. Semester Plan (~10 weeks)
 
 **Build order principle: combat fun first, then systems, then map, then polish — so a playable demo always exists.**
 
@@ -149,7 +191,7 @@ Save/serialization · full art pass (flat geometric cats only if time) · Steal 
 
 ---
 
-## 9. Open Questions / Next Decisions
+## 10. Open Questions / Next Decisions
 - Exact status effect numbers and formulas (balance pass).
 - Which enemies live in which buildings.
 - Whether Steal stays a must-have or moves to the stretch list.
@@ -158,16 +200,16 @@ Save/serialization · full art pass (flat geometric cats only if time) · Steal 
 
 ## References
 
-[1] MegaCrit, *Slay the Spire*. Seattle, WA, USA: MegaCrit, 2019. [Online]. Available: https://store.steampowered.com/app/646570/Slay_the_Spire/ [Accessed Sep. 1, 2026].
+1. MegaCrit, *Slay the Spire*. Seattle, WA, USA: MegaCrit, 2019. [Online]. Available: [store.steampowered.com/app/646570/Slay_the_Spire](https://store.steampowered.com/app/646570/Slay_the_Spire/). Accessed Sep. 1, 2026. {:#ref-1}
 
-[2] Game Freak, *Pokémon*. Kyoto, Japan: Nintendo, 1996. [Online]. Available: https://www.pokemon.com/ [Accessed Sep. 1, 2026].
+2. Game Freak, *Pokémon*. Kyoto, Japan: Nintendo, 1996. [Online]. Available: [pokemon.com](https://www.pokemon.com/). Accessed Sep. 1, 2026. {:#ref-2}
 
-[3] The Gentlebros, *Cat Quest*. Auckland, New Zealand: The Gentlebros, 2017. [Online]. Available: https://store.steampowered.com/app/593280/Cat_Quest/ [Accessed Sep. 1, 2026].
+3. The Gentlebros, *Cat Quest*. Auckland, New Zealand: The Gentlebros, 2017. [Online]. Available: [store.steampowered.com/app/593280/Cat_Quest](https://store.steampowered.com/app/593280/Cat_Quest/). Accessed Sep. 1, 2026. {:#ref-3}
 
-[4] BlueTwelve Studio, *Stray*. Montpellier, France: Annapurna Interactive, 2022. [Online]. Available: https://store.steampowered.com/app/1332010/Stray/ [Accessed Sep. 1, 2026].
+4. BlueTwelve Studio, *Stray*. Montpellier, France: Annapurna Interactive, 2022. [Online]. Available: [store.steampowered.com/app/1332010/Stray](https://store.steampowered.com/app/1332010/Stray/). Accessed Sep. 1, 2026. {:#ref-4}
 
-[5] Pygame developers, "Pygame Front Page — pygame v2.6.0 documentation," pygame.org, 2023. [Online]. Available: https://www.pygame.org/docs/ [Accessed Sep. 1, 2026].
+5. Pygame developers, "Pygame Front Page — pygame v2.6.0 documentation," pygame.org, 2023. [Online]. Available: [pygame.org/docs](https://www.pygame.org/docs/). Accessed Sep. 1, 2026. {:#ref-5}
 
-[6] DaFluffyPotato, "Pygame tutorials," YouTube. [Online]. Available: https://www.youtube.com/@DaFluffyPotato [Accessed Sep. 1, 2026].
+6. DaFluffyPotato, "Pygame tutorials," YouTube. [Online]. Available: [youtube.com/@DaFluffyPotato](https://www.youtube.com/@DaFluffyPotato). Accessed Sep. 1, 2026. {:#ref-6}
 
-[7] "Godot vs Pygame: Which Game Development Framework Is Better," YouTube. [Online]. Available: https://www.youtube.com/watch?v=HxifSbwH4T0 [Accessed Sep. 1, 2026].
+7. "Godot vs Pygame: Which Game Development Framework Is Better," YouTube. [Online]. Available: [youtube.com/watch?v=HxifSbwH4T0](https://www.youtube.com/watch?v=HxifSbwH4T0). Accessed Sep. 1, 2026. {:#ref-7}

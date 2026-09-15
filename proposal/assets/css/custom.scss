@@ -1,0 +1,30 @@
+---
+---
+
+.content table {
+  border-collapse: collapse;
+  margin: 1.5rem 0;
+  font-size: 0.9em;
+  width: 100%;
+}
+
+.content th,
+.content td {
+  border: 1px solid var(--bs-border-color, #dee2e6);
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.content th {
+  background-color: var(--bs-tertiary-bg, #f8f9fa);
+  font-weight: 600;
+}
+
+.content tbody tr:nth-child(even) {
+  background-color: var(--bs-secondary-bg, #f2f2f2);
+}
+
+.content table a {
+  text-decoration: underline;
+}
