@@ -23,7 +23,7 @@ jobs:
       - name: Build slides with Marp CLI
         run: |
           mkdir -p _site/slides
-          npx --yes @marp-team/marp-cli@latest --theme-set slides/wave.css slides/slides.md -o _site/slides/slides.html
+          npx --yes @marp-team/marp-cli@latest slides/slides.md -o _site/slides/slides.html
           ls -la _site/slides
           test -f _site/slides/slides.html
         working-directory: proposal

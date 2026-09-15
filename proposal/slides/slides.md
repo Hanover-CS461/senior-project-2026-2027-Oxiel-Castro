@@ -1,6 +1,6 @@
 ---
 marp: true
-theme: wave
+theme: gaia
 paginate: true
 transition: fade 0.3s
 ---
