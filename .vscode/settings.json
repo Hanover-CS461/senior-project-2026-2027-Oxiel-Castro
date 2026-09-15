@@ -1,0 +1,5 @@
+{
+    "markdown.marp.themes": [
+        "./proposal/slides/wave.css"
+    ]
+}
