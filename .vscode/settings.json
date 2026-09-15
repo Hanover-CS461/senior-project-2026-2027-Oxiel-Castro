@@ -1,5 +1,5 @@
 {
     "markdown.marp.themes": [
-        "./proposal/slides/wave.css"
+        "https://raw.githubusercontent.com/JuliusWiedemann/MarpThemeWave/main/source/wave.css"
     ]
 }
