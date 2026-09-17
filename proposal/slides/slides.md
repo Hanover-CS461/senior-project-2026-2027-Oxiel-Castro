@@ -1,6 +1,6 @@
 ---
 marp: true
-theme: gaia
+theme: rose-pine-moon
 paginate: true
 transition: fade 0.3s
 ---
