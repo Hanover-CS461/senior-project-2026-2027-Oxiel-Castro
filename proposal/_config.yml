@@ -9,6 +9,7 @@ lang: en-US
 nav_pages:
   - index.md
   - proposal.md
+  - tutorial/index.md
 
 exclude:
   - slides

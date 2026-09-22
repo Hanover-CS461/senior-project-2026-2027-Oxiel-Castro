@@ -18,6 +18,7 @@ from config import (
     MESSAGE_PAGE_LINES,
     READ_DELAY,
     WINDOW_SIZE,
+    COLOR_WHITE,
 )
 from sprites import load_frames
 from ui import Button, draw_bar, draw_disabled_button
@@ -67,7 +68,20 @@ class Game:
         self.battle_buttons = [
             Button(50, 500, 180, 60, "Attack", "attack"),
             Button(250, 500, 180, 60, "Rest", "rest"),
+            Button(450, 500, 180, 60, "Instincts", "instincts")
         ]
+        self.instinct_spots = [
+            ("night_vision", 140, 430),
+            ("prowl", 380, 430),
+            ("yowl", 140, 490),
+            ("nine_lives", 380, 490),
+        ]
+        self.instinct_buttons = [
+            Button(x, y, 220, 55, f"{Battle.INSTINCTS[name]['name']} ({Battle.INSTINCTS[name]['cost']})", name)
+            for name, x, y in self.instinct_spots
+        ]
+        self.back_button = Button(620, 430, 140, 55, "Back", "back")
+        self.submenu = False
         self.menu_button = Button(300, 400, 200, 60, "Menu", "menu")
 
         self.battle = None
@@ -151,14 +165,23 @@ class Game:
             more = self.small_font.render("...", True, COLOR_WHITE)
             self.screen.blit(more, (40, y))
 
-        for button in self.battle_buttons:
-            disabled = self.enemy_phase or (
-                button.action == "attack" and not self.battle.can_attack()
-            )
-            if disabled:
-                draw_disabled_button(self.screen, button, self.font)
-            else:
-                button.draw(self.screen, self.font)
+        if self.submenu:
+            for button in self.instinct_buttons:
+                disabled = self.enemy_phase or not self.battle.can_use_instinct(button.action)
+                if disabled:
+                    draw_disabled_button(self.screen, button, self.small_font)
+                else:
+                    button.draw(self.screen, self.small_font)
+            self.back_button.draw(self.screen, self.small_font)
+        else:
+            for button in self.battle_buttons:
+                disabled = self.enemy_phase or (
+                    button.action == "attack" and not self.battle.can_attack()
+                )
+                if disabled:
+                    draw_disabled_button(self.screen, button, self.font)
+                else:
+                    button.draw(self.screen, self.font)
 
     def draw_end(self, message):
         """Draw the victory or defeat screen with a back-to-menu button."""
@@ -177,6 +200,7 @@ class Game:
                         self.battle = Battle()
                         self.enemy_phase = False
                         self.enemy_timer = 0
+                        self.submenu = False
                         self._message_pages = []
                         self._message_page = 0
                         self._message_timer = 0
@@ -186,17 +210,27 @@ class Game:
                         self.running = False
         elif self.state == "battle":
             if self.battle.phase == "player" and not self.enemy_phase:
-                for button in self.battle_buttons:
-                    if button.rect.collidepoint(pos):
-                        if button.action == "attack":
-                            self.battle.attack()
-                            if self.battle.luna_attacked:
-                                self.attack_anim = True
-                                self.attack_index = 0
-                                self.attack_timer = pygame.time.get_ticks()
-                                self.battle.luna_attacked = False
-                        elif button.action == "rest":
-                            self.battle.rest()
+                if self.submenu:
+                    if self.back_button.rect.collidepoint(pos):
+                        self.submenu = False
+                    for button in self.instinct_buttons:
+                        if button.rect.collidepoint(pos):
+                            self.battle.use_instinct(button.action)
+                            self.submenu = False
+                else:
+                    for button in self.battle_buttons:
+                        if button.rect.collidepoint(pos):
+                            if button.action == "attack":
+                                self.battle.attack()
+                                if self.battle.luna_attacked:
+                                    self.attack_anim = True
+                                    self.attack_index = 0
+                                    self.attack_timer = pygame.time.get_ticks()
+                                    self.battle.luna_attacked = False
+                            elif button.action == "rest":
+                                self.battle.rest()
+                            elif button.action == "instincts":
+                                self.submenu = True
                 if self.battle.over:
                     self.state = "victory" if self.battle.won else "defeat"
                 elif self.battle.phase == "enemy":
