@@ -13,7 +13,7 @@ class SpriteSheet:
         return self.sheet.subsurface(rect)
 
 
-def load_frames(path, frame_rects, size=None, scale=None):
+def load_frames(path, frame_rects, size=None, scale=None, flip=False):
     """Load a sprite sheet and scale its frames to a size or scale factor."""
     sheet = SpriteSheet(path)
     frames = []
@@ -23,5 +23,7 @@ def load_frames(path, frame_rects, size=None, scale=None):
             frame = pygame.transform.scale(frame, size)
         elif scale is not None:
             frame = pygame.transform.scale(frame, (w * scale, h * scale))
+        if flip:
+            frame = pygame.transform.flip(frame, True, False)
         frames.append(frame)
     return frames

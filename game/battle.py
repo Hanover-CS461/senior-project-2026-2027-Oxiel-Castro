@@ -1,23 +1,126 @@
 import random
 
 
-class Enemy:
-    """A single enemy with stats, a random attack, and an agility rating."""
+class Status:
+    """A temporary modifier on a combatant with duration, magnitude, and triggers."""
 
-    def __init__(self, name, hp, min_damage, max_damage, agility):
-        """Create an enemy with name, hit points, damage range, and agility."""
+    def __init__(self, definition):
+        self.name = definition["name"]
+        self.duration = definition["duration"]
+        self.modifiers = dict(definition["modifiers"])
+        self.caps = dict(definition.get("caps", {}))
+        self.triggers = set(definition.get("triggers", ()))
+
+
+STATUSES = {
+    "prowl": {
+        "name": "Prowl",
+        "duration": 2,
+        "modifiers": {"agility": 0.5},
+        "caps": {"agility": 1.5},
+        "triggers": ("was_attacked",),
+    },
+    "riled": {
+        "name": "Riled",
+        "duration": 2,
+        "modifiers": {"outgoing_mult": 1.5},
+        "caps": {"outgoing_mult": 2.0},
+        "triggers": ("dealt_hit",),
+    },
+    "intimidated": {
+        "name": "Intimidated",
+        "duration": 2,
+        "modifiers": {"incoming_mult": 1.5},
+        "caps": {"incoming_mult": 2.0},
+        "triggers": ("took_hit",),
+    },
+    "puffed": {
+        "name": "Puffed",
+        "duration": 1,
+        "modifiers": {"incoming_mult": 0.5},
+        "caps": {"incoming_mult": 0.5},
+        "triggers": ("took_hit",),
+    },
+    "night_vision": {
+        "name": "Night Vision",
+        "duration": 3,
+        "modifiers": {},
+        "caps": {},
+        "triggers": ("round_end",),
+    },
+}
+
+
+def apply_status(statuses, key):
+    """Apply a status to a combatant, refreshing duration and capping magnitude."""
+    definition = STATUSES[key]
+    existing = statuses.get(key)
+    if existing is None:
+        statuses[key] = Status(definition)
+        return
+    existing.duration = max(existing.duration, definition["duration"])
+    for stat, value in definition["modifiers"].items():
+        cap = definition["caps"].get(stat)
+        if stat.endswith("_mult"):
+            combined = existing.modifiers[stat] * value
+            if cap is not None:
+                combined = max(combined, cap) if value < 1.0 else min(combined, cap)
+        else:
+            combined = existing.modifiers[stat] + value
+            if cap is not None:
+                combined = min(combined, cap)
+        existing.modifiers[stat] = combined
+
+
+def effective_agility(base, statuses):
+    """Return a combatant's base agility plus agility granted by active statuses."""
+    return base + sum(s.modifiers.get("agility", 0.0) for s in statuses.values())
+
+
+def damage_multipliers(statuses):
+    """Return the (outgoing, incoming) damage multipliers for a combatant."""
+    outgoing = 1.0
+    incoming = 1.0
+    for status in statuses.values():
+        outgoing *= status.modifiers.get("outgoing_mult", 1.0)
+        incoming *= status.modifiers.get("incoming_mult", 1.0)
+    return outgoing, incoming
+
+
+def tick_statuses(statuses, trigger):
+    """Decrement statuses triggered by an event; remove them when they expire."""
+    for key in [k for k, s in statuses.items() if trigger in s.triggers]:
+        statuses[key].duration -= 1
+        if statuses[key].duration <= 0:
+            del statuses[key]
+
+
+ENEMY_MOVES = {
+    "fly": [
+        {"name": "Buzz", "damage": (5, 8), "weight": 55},
+        {"name": "Sting", "damage": (11, 15), "weight": 25, "heavy": True},
+        {"name": "Hover", "weight": 10, "status": "prowl", "target": "self", "message": "its agility is up"},
+        {"name": "Irritate", "weight": 10, "status": "intimidated", "target": "player", "message": "Luna is intimidated"},
+    ],
+}
+
+
+class Enemy:
+    """A single enemy with stats, a move pool, and a chosen intent."""
+
+    def __init__(self, name, hp, agility, moves):
+        """Create an enemy with name, hit points, agility, and a move pool."""
         self.name = name
         self.hp = hp
         self.max_hp = hp
-        self.min_damage = min_damage
-        self.max_damage = max_damage
         self.agility = agility
-        self.defense_multiplier = 1.0
-        self.defense_turns = 0
+        self.statuses = {}
+        self.moves = moves
+        self.intent = None
 
-    def attack(self):
-        """Return a random amount of damage."""
-        return random.randint(self.min_damage, self.max_damage)
+    def choose_intent(self):
+        """Weighted-random pick of the enemy's next move."""
+        self.intent = random.choices(self.moves, weights=[m["weight"] for m in self.moves])[0]
 
 
 class Battle:
@@ -42,17 +145,16 @@ class Battle:
         self.player_hp_max = 100
         self.focus = 16
         self.agility = 3
-        self.enemy = Enemy("Fly", 80, 6, 9, 5)
+        self.enemy = Enemy("Fly", 80, 5, ENEMY_MOVES["fly"])
+        self.enemy.choose_intent()
         self.over = False
         self.won = False
         self.phase = "player"
         self.message = "A wild Fly appears!"
         self._queued_attack = False
         self.luna_attacked = False
-        self.attack_bonus = 0
-        self.attack_bonus_turns = 0
-        self.night_vision = False
         self.nine_lives = False
+        self.statuses = {}
 
     @staticmethod
     def dodge_chance(agility):
@@ -115,20 +217,18 @@ class Battle:
         return self.INSTINCTS[name]["cost"]
 
     def _instinct_night_vision(self):
-        """Reveal the enemy's intent (placeholder: no visible effect yet)."""
-        self.night_vision = True
-        self._say("Luna's eyes sharpen, reading the Fly's next move!")
+        """Reveal the enemy's intent for three rounds."""
+        apply_status(self.statuses, "night_vision")
+        self._say("Luna's eyes sharpen, reading the enemy's intent!")
 
     def _instinct_prowl(self):
-        """Raise Luna's attack for the next two attacks."""
-        self.attack_bonus = 2
-        self.attack_bonus_turns = 2
-        self._say("Luna prowls; her attack is up for two turns!")
+        """Raise Luna's agility for two attacks, improving dodge and turn order."""
+        apply_status(self.statuses, "prowl")
+        self._say("Luna prowls; her agility is up!")
 
     def _instinct_yowl(self):
-        """Lower the enemy's defense so attacks deal 1.5x for two turns."""
-        self.enemy.defense_multiplier = 1.5
-        self.enemy.defense_turns = 2
+        """Intimidate the enemy so it takes 1.5x damage for two hits."""
+        apply_status(self.enemy.statuses, "intimidated")
         self._say("Luna yowls, intimidating the Fly!")
 
     def _instinct_nine_lives(self):
@@ -136,20 +236,16 @@ class Battle:
         self.nine_lives = True
         self._say("Luna steels herself with her Nine Lives!")
 
-    def _tick_statuses(self):
-        """Count down active instinct durations and clear expired effects."""
-        if self.attack_bonus_turns > 0:
-            self.attack_bonus_turns -= 1
-            if self.attack_bonus_turns == 0:
-                self.attack_bonus = 0
-        if self.enemy.defense_turns > 0:
-            self.enemy.defense_turns -= 1
-            if self.enemy.defense_turns == 0:
-                self.enemy.defense_multiplier = 1.0
+    def defend(self):
+        """Puff up to halve the next incoming hit, then give the turn to the enemy."""
+        self.luna_attacked = False
+        apply_status(self.statuses, "puffed")
+        self.message = "Luna puffs up, halving the next attack!"
+        self.phase = "enemy"
 
     def enemy_turn(self):
-        """Enemy attacks; Luna's queued attack resolves after if she survives."""
-        self._enemy_attack()
+        """Enemy executes its intent; Luna's queued attack resolves after."""
+        self._execute_intent()
         if self.over:
             return
         if self._queued_attack:
@@ -157,12 +253,28 @@ class Battle:
             self._luna_attack()
         if not self.over:
             self.phase = "player"
+            tick_statuses(self.statuses, "round_end")
+            tick_statuses(self.enemy.statuses, "round_end")
+            self.enemy.choose_intent()
+
+    def _execute_intent(self):
+        """Carry out the enemy's chosen move for the round."""
+        move = self.enemy.intent
+        if "status" in move:
+            target = self.statuses if move["target"] == "player" else self.enemy.statuses
+            apply_status(target, move["status"])
+            detail = move.get("message", "")
+            self._say(f"The {self.enemy.name} uses {move['name']}! {detail}".strip())
+        else:
+            self._enemy_attack(move)
 
     def _player_acts_first(self):
         """Decide who acts first: higher agility wins, ties are random."""
-        if self.agility > self.enemy.agility:
+        luna = effective_agility(self.agility, self.statuses)
+        enemy = effective_agility(self.enemy.agility, self.enemy.statuses)
+        if luna > enemy:
             return True
-        if self.enemy.agility > self.agility:
+        if enemy > luna:
             return False
         return random.choice([True, False])
 
@@ -170,36 +282,42 @@ class Battle:
         """Resolve Luna's attack: spend focus, then damage unless dodged."""
         self.focus -= self.ATTACK_COST
         self.luna_attacked = True
-        if random.random() < self.dodge_chance(self.enemy.agility):
+        if random.random() < self.dodge_chance(effective_agility(self.enemy.agility, self.enemy.statuses)):
             self._say(f"The {self.enemy.name} dodges Luna's attack!")
-            self._tick_statuses()
+            tick_statuses(self.enemy.statuses, "was_attacked")
             return 0
         damage = random.randint(*self.ATTACK_DAMAGE)
-        if self.attack_bonus > 0:
-            damage += self.attack_bonus
-        if self.enemy.defense_multiplier > 1.0:
-            damage = int(damage * self.enemy.defense_multiplier)
-        self._tick_statuses()
+        outgoing = damage_multipliers(self.statuses)[0]
+        incoming = damage_multipliers(self.enemy.statuses)[1]
+        damage = int(damage * outgoing * incoming)
         self.enemy.hp = max(0, self.enemy.hp - damage)
         self._say(f"Luna attacks the {self.enemy.name} for {damage} damage!")
+        tick_statuses(self.statuses, "dealt_hit")
+        tick_statuses(self.enemy.statuses, "took_hit")
+        tick_statuses(self.enemy.statuses, "was_attacked")
         if self.enemy.hp == 0:
             self.over = True
             self.won = True
         return damage
 
-    def _enemy_attack(self):
-        """Resolve the enemy's attack, unless Luna dodges or Nine Lives saves her."""
-        if random.random() < self.dodge_chance(self.agility):
+    def _enemy_attack(self, move):
+        """Resolve the enemy's damage move, unless Luna dodges or Nine Lives saves her."""
+        if random.random() < self.dodge_chance(effective_agility(self.agility, self.statuses)):
             self._say(f"Luna dodges the {self.enemy.name}'s attack!")
+            tick_statuses(self.statuses, "was_attacked")
             return
-        damage = self.enemy.attack()
+        outgoing = damage_multipliers(self.enemy.statuses)[0]
+        incoming = damage_multipliers(self.statuses)[1]
+        damage = int(random.randint(*move["damage"]) * outgoing * incoming)
         if self.player_hp - damage <= 0 and self.nine_lives:
             self.nine_lives = False
             self.player_hp = 1
             self._say("Nine Lives saves Luna from certain death!")
-            return
-        self.player_hp = max(0, self.player_hp - damage)
-        self._say(f"The {self.enemy.name} attacks you for {damage} damage!")
-        if self.player_hp == 0:
-            self.over = True
-            self.won = False
+        else:
+            self.player_hp = max(0, self.player_hp - damage)
+            self._say(f"The {self.enemy.name}'s {move['name']} hits you for {damage} damage!")
+            if self.player_hp == 0:
+                self.over = True
+                self.won = False
+        tick_statuses(self.statuses, "was_attacked")
+        tick_statuses(self.statuses, "took_hit")

@@ -41,10 +41,25 @@ def draw_disabled_button(screen, button, font):
     screen.blit(text_surface, text_rect)
 
 
-def draw_bar(screen, font, x, y, width, height, value, max_value, color, label):
-    """Draw a labeled progress bar showing value out of max_value."""
+def draw_bar(screen, font, x, y, width, height, value, max_value, color, label=None):
+    """Draw a progress bar showing value out of max_value."""
     pygame.draw.rect(screen, COLOR_BLACK, (x, y, width, height))
     fill = int(width * value / max_value)
     pygame.draw.rect(screen, color, (x, y, fill, height))
-    text = font.render(label, True, COLOR_WHITE)
-    screen.blit(text, (x, y - 26))
+    if label is not None:
+        draw_outlined_text(screen, font, label, (x, y - 26))
+
+
+def draw_outlined_text(screen, font, text, pos, color=COLOR_WHITE, outline=COLOR_BLACK):
+    """Draw text with a translucent black backing and outline for readability."""
+    text_w, text_h = font.size(text)
+    pad_x, pad_y = 8, 4
+    box = pygame.Surface((text_w + pad_x * 2, text_h + pad_y * 2), pygame.SRCALPHA)
+    box.fill((0, 0, 0, 110))
+    base = font.render(text, True, color)
+    mask = font.render(text, True, outline)
+    x, y = pad_x, pad_y
+    for dx, dy in ((-1, -1), (0, -1), (1, -1), (-1, 0), (1, 0), (-1, 1), (0, 1), (1, 1)):
+        box.blit(mask, (x + dx, y + dy))
+    box.blit(base, (x, y))
+    screen.blit(box, pos)

@@ -5,6 +5,10 @@ READ_DELAY = 600
 MESSAGE_PAGE_LINES = 5
 MESSAGE_MAX_WIDTH = 720
 
+LUNA_X = 60
+LUNA_ATTACK_X = 470
+WALK_TIME = 400
+
 COLOR_BLACK = (0, 0, 0)
 COLOR_WHITE = (255, 255, 255)
 COLOR_BUTTON = (30, 144, 255)
@@ -23,6 +27,17 @@ LUNA_FRAMES = [
     (33, 9, 32, 20),
     (67, 11, 31, 18),
     (101, 12, 30, 19),
+]
+
+WALK_FRAMES = [
+    (3, 264, 27, 18),
+    (35, 264, 28, 18),
+    (69, 264, 27, 18),
+    (104, 264, 25, 18),
+    (135, 264, 27, 18),
+    (167, 264, 28, 18),
+    (201, 264, 27, 18),
+    (236, 264, 25, 18),
 ]
 
 FLY_FRAMES = [
