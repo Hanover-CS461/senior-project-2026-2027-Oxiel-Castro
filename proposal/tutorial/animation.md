@@ -6,6 +6,8 @@ title: Animation
 
 Animation is just drawing one frame, waiting a few milliseconds, then drawing the next. The tricky part is timing it off a clock so every computer animates at the same speed.
 
+A note on pacing: cap the loop with [`pygame.time.Clock.tick()`](https://www.pygame.org/docs/ref/time.html#pygame.time.Clock.tick) — `clock.tick(60)` at the end of the loop waits just enough so the loop runs at most 60 times per second. The millisecond timers below rely on this steady rhythm, so keep the `tick` line at the end of your loop.
+
 ## The frame counter and timer
 
 Keep two variables: which frame is showing, and when we last changed it.

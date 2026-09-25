@@ -78,7 +78,7 @@ frames = load_frames("Luna.png", LUNA_FRAMES, scale=5)         # 5x original
 
 ## Putting a frame on screen
 
-Now draw the first walk frame onto the window from the previous part:
+Now draw the first walk frame onto the window:
 
 ```python
 import pygame
@@ -86,23 +86,13 @@ import pygame
 # SpriteSheet class and load_frames from above go here...
 frames = load_frames("Luna.png", LUNA_FRAMES, scale=5)
 
-pygame.init()
 screen = pygame.display.set_mode((800, 600))
-
-running = True
-while running:
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
-    screen.fill((120, 200, 120))
-    screen.blit(frames[0], (60, 300))
-    pygame.display.flip()
-
-pygame.quit()
+screen.blit(frames[0], (60, 300))
+pygame.display.flip()
 ```
 
 [`Surface.blit()`](https://www.pygame.org/docs/ref/surface.html#pygame.Surface.blit) copies the frame surface onto the window at the position you give it. `screen.fill(...)` paints over the previous frame first, or you would see every frame drawn on top of each other.
 
 You can now load and crop any frame from a sheet. Next: make the frames move.
 
-[Next: Animation — moving, flipping, and attacks](animation.md) · [Previous: Setup](setup.md)
+[Next: Animation — moving, flipping, and attacks](animation.md) · [Previous: index](index.md)
