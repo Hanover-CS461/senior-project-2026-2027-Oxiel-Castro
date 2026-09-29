@@ -14,6 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "game"))
 from battle import (
     Battle,
     ENEMY_MOVES,
+    ITEMS,
     STATUSES,
     Enemy,
     apply_status,
@@ -311,6 +312,66 @@ class BattleFlowTest(TestCase):
             battle.enemy_turn()
         self.assertTrue(battle.over)
         self.assertFalse(battle.won)
+
+
+class ItemsTest(TestCase):
+    """Tests for the item system: healing, refueling, statuses, and inventory."""
+
+    def test_starting_inventory(self):
+        battle = Battle()
+        self.assertEqual(battle.inventory["wet_food"], 3)
+        self.assertEqual(battle.inventory["catnip"], 2)
+        self.assertEqual(battle.inventory["milk"], 1)
+
+    def test_wet_food_heals(self):
+        battle = Battle()
+        battle.player_hp = 50
+        battle.use_item("wet_food")
+        self.assertEqual(battle.player_hp, 75)
+        self.assertEqual(battle.inventory["wet_food"], 2)
+        self.assertEqual(battle.phase, "enemy")
+
+    def test_wet_food_capped_at_max_hp(self):
+        battle = Battle()
+        battle.player_hp = 90
+        battle.use_item("wet_food")
+        self.assertEqual(battle.player_hp, 100)
+
+    def test_catnip_refuels_and_rile_up(self):
+        battle = Battle()
+        battle.focus = 10
+        battle.use_item("catnip")
+        self.assertEqual(battle.focus, 20)
+        self.assertIn("riled", battle.statuses)
+        self.assertEqual(damage_multipliers(battle.statuses), (1.5, 1.0))
+
+    def test_catnip_focus_capped(self):
+        battle = Battle()
+        battle.focus = 28
+        battle.use_item("catnip")
+        self.assertEqual(battle.focus, Battle.MAX_FOCUS)
+
+    def test_milk_heals_and_puffs(self):
+        battle = Battle()
+        battle.player_hp = 70
+        battle.use_item("milk")
+        self.assertEqual(battle.player_hp, 85)
+        self.assertIn("puffed", battle.statuses)
+
+    def test_use_item_consumes_turn(self):
+        battle = Battle()
+        battle.use_item("wet_food")
+        self.assertEqual(battle.phase, "enemy")
+
+    def test_use_item_out_of_stock(self):
+        battle = Battle()
+        battle.inventory["wet_food"] = 0
+        self.assertIsNone(battle.use_item("wet_food"))
+        self.assertEqual(battle.message, "No Wet Food left!")
+
+    def test_all_items_defined(self):
+        for key in ("wet_food", "catnip", "milk"):
+            self.assertIn("name", ITEMS[key])
 
 
 if __name__ == "__main__":
