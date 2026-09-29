@@ -1,4 +1,5 @@
 ---
+layout: default
 title: Practice Exercises
 ---
 
