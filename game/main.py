@@ -2,7 +2,7 @@ import re
 
 import pygame
 
-from battle import Battle
+from battle import Battle, ITEMS
 from config import (
     ATTACK_FRAMES,
     COLOR_BATTLE_BG,
@@ -78,10 +78,11 @@ class Game:
             Button(300, 330, 200, 60, "Quit", "quit"),
         ]
         self.battle_buttons = [
-            Button(20, 500, 180, 60, "Attack", "attack"),
-            Button(210, 500, 180, 60, "Defend", "defend"),
-            Button(400, 500, 180, 60, "Rest", "rest"),
-            Button(590, 500, 180, 60, "Instincts", "instincts")
+            Button(20, 500, 150, 60, "Attack", "attack"),
+            Button(175, 500, 150, 60, "Defend", "defend"),
+            Button(330, 500, 150, 60, "Rest", "rest"),
+            Button(485, 500, 150, 60, "Items", "items"),
+            Button(640, 500, 150, 60, "Instincts", "instincts")
         ]
         self.instinct_spots = [
             ("night_vision", 140, 430),
@@ -93,8 +94,12 @@ class Game:
             Button(x, y, 220, 55, f"{Battle.INSTINCTS[name]['name']} ({Battle.INSTINCTS[name]['cost']})", name)
             for name, x, y in self.instinct_spots
         ]
+        self.item_buttons = [
+            Button(x, y, 220, 55, f"{ITEMS[name]['name']} x0", name)
+            for name, x, y in [("wet_food", 140, 430), ("catnip", 380, 430), ("milk", 140, 490)]
+        ]
         self.back_button = Button(620, 430, 140, 55, "Back", "back")
-        self.submenu = False
+        self.submenu = None
         self.menu_button = Button(300, 400, 200, 60, "Menu", "menu")
 
         self.battle = None
@@ -214,9 +219,19 @@ class Game:
         if len(self._message_pages) > self._message_page + 1:
             draw_outlined_text(self.screen, self.small_font, "...", (40, y))
 
-        if self.submenu:
+        if self.submenu == "instincts":
             for button in self.instinct_buttons:
                 disabled = self.enemy_phase or not self.battle.can_use_instinct(button.action)
+                if disabled:
+                    draw_disabled_button(self.screen, button, self.small_font)
+                else:
+                    button.draw(self.screen, self.small_font)
+            self.back_button.draw(self.screen, self.small_font)
+        elif self.submenu == "items":
+            for button in self.item_buttons:
+                name = button.action
+                button.text = f"{ITEMS[name]['name']} x{self.battle.inventory[name]}"
+                disabled = self.enemy_phase or not self.battle.can_use_item(name)
                 if disabled:
                     draw_disabled_button(self.screen, button, self.small_font)
                 else:
@@ -249,7 +264,7 @@ class Game:
                         self.battle = Battle()
                         self.enemy_phase = False
                         self.enemy_timer = 0
-                        self.submenu = False
+                        self.submenu = None
                         self._message_pages = []
                         self._message_page = 0
                         self._message_timer = 0
@@ -259,13 +274,20 @@ class Game:
                         self.running = False
         elif self.state == "battle":
             if self.battle.phase == "player" and not self.enemy_phase:
-                if self.submenu:
+                if self.submenu == "instincts":
                     if self.back_button.rect.collidepoint(pos):
-                        self.submenu = False
+                        self.submenu = None
                     for button in self.instinct_buttons:
                         if button.rect.collidepoint(pos):
                             self.battle.use_instinct(button.action)
-                            self.submenu = False
+                            self.submenu = None
+                elif self.submenu == "items":
+                    if self.back_button.rect.collidepoint(pos):
+                        self.submenu = None
+                    for button in self.item_buttons:
+                        if button.rect.collidepoint(pos):
+                            self.battle.use_item(button.action)
+                            self.submenu = None
                 else:
                     for button in self.battle_buttons:
                         if button.rect.collidepoint(pos):
@@ -280,8 +302,10 @@ class Game:
                                 self.battle.rest()
                             elif button.action == "defend":
                                 self.battle.defend()
+                            elif button.action == "items":
+                                self.submenu = "items"
                             elif button.action == "instincts":
-                                self.submenu = True
+                                self.submenu = "instincts"
                 if self.battle.over:
                     self.state = "victory" if self.battle.won else "defeat"
                 elif self.battle.phase == "enemy":

@@ -104,6 +104,12 @@ ENEMY_MOVES = {
     ],
 }
 
+ITEMS = {
+    "wet_food": {"name": "Wet Food", "heal": 25},
+    "catnip": {"name": "Catnip", "focus": 10, "status": "riled"},
+    "milk": {"name": "Milk", "heal": 15, "status": "puffed"},
+}
+
 
 class Enemy:
     """A single enemy with stats, a move pool, and a chosen intent."""
@@ -155,6 +161,7 @@ class Battle:
         self.luna_attacked = False
         self.nine_lives = False
         self.statuses = {}
+        self.inventory = {"wet_food": 3, "catnip": 2, "milk": 1}
 
     @staticmethod
     def dodge_chance(agility):
@@ -242,6 +249,35 @@ class Battle:
         apply_status(self.statuses, "puffed")
         self.message = "Luna puffs up, halving the next attack!"
         self.phase = "enemy"
+
+    def can_use_item(self, name):
+        """Return True if Luna has at least one of the named item left."""
+        return self.inventory.get(name, 0) > 0
+
+    def use_item(self, name):
+        """Use an item from the inventory, then give the turn to the enemy."""
+        if not self.can_use_item(name):
+            self.message = f"No {ITEMS[name]['name']} left!"
+            return None
+
+        self.luna_attacked = False
+        item = ITEMS[name]
+        self.inventory[name] -= 1
+        self.message = ""
+
+        if "heal" in item:
+            healed = min(item["heal"], self.player_hp_max - self.player_hp)
+            self.player_hp += healed
+            self._say(f"Luna eats {item['name'].lower()} and recovers {healed} HP!")
+        if "focus" in item:
+            gained = min(item["focus"], self.MAX_FOCUS - self.focus)
+            self.focus += gained
+            self._say(f"Luna munches catnip and regains {gained} focus!")
+        if "status" in item:
+            apply_status(self.statuses, item["status"])
+            self._say(f"Luna feels {STATUSES[item['status']]['name'].lower()}!")
+        self.phase = "enemy"
+        return name
 
     def enemy_turn(self):
         """Enemy executes its intent; Luna's queued attack resolves after."""
