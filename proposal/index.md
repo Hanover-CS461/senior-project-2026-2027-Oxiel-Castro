@@ -3,4 +3,4 @@ layout: default
 title: Home
 ---
 
-[Proposal](./proposal.md) | [Tutorial](./tutorial/index.md) | [Slides](./slides/slides.html)
+**[Play the Game](./game/)** | [Proposal](./proposal.md) | [Tutorial](./tutorial/index.md) | [Slides](./slides/slides.html)
