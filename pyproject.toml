@@ -9,5 +9,6 @@ dependencies = ["pygame-ce"]
 app = "game.main:web_main"
 title = "Luna - a Hanover College Mystery"
 include = ["game/**"]
+python-path = [".", "game"]
 canvas-width = 800
 canvas-height = 600
