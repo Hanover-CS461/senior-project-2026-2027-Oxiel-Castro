@@ -105,23 +105,24 @@ ENEMY_MOVES = {
 }
 
 ITEMS = {
-    "wet_food": {"name": "Wet Food", "heal": 25},
-    "catnip": {"name": "Catnip", "focus": 10, "status": "riled"},
-    "milk": {"name": "Milk", "heal": 15, "status": "puffed"},
+    "wet_food": {"name": "Wet Food", "heal": 35},
+    "catnip": {"name": "Catnip", "focus": 12, "status": "riled"},
+    "milk": {"name": "Milk", "heal": 25, "status": "puffed"},
 }
 
 
 class Enemy:
     """A single enemy with stats, a move pool, and a chosen intent."""
 
-    def __init__(self, name, hp, agility, moves):
-        """Create an enemy with name, hit points, agility, and a move pool."""
+    def __init__(self, name, hp, agility, moves, sprite="fly"):
+        """Create an enemy with name, hit points, agility, moves, and a sprite key."""
         self.name = name
         self.hp = hp
         self.max_hp = hp
         self.agility = agility
         self.statuses = {}
         self.moves = moves
+        self.sprite = sprite
         self.intent = None
 
     def choose_intent(self):
@@ -135,33 +136,35 @@ class Battle:
     ATTACK_COST = 3
     ATTACK_DAMAGE = (13, 16)
     REST_GAIN = 12
+    REST_HEAL = 10
     MAX_FOCUS = 30
     DODGE_BASE = 0.05
     DODGE_PER_AGILITY = 0.01
     INSTINCTS = {
         "night_vision": {"name": "Night Vision", "cost": 2},
-        "prowl": {"name": "Prowl", "cost": 3},
+        "lick_wounds": {"name": "Lick Wounds", "cost": 3},
         "yowl": {"name": "Yowl", "cost": 4},
         "nine_lives": {"name": "Nine Lives", "cost": 5},
     }
+    LICK_HEAL = 20
 
-    def __init__(self):
-        """Start a new battle against the Fly."""
-        self.player_hp = 100
-        self.player_hp_max = 100
-        self.focus = 16
-        self.agility = 3
-        self.enemy = Enemy("Fly", 80, 5, ENEMY_MOVES["fly"])
+    def __init__(self, player_hp=100, player_hp_max=100, focus=16, agility=3, inventory=None, enemy=None):
+        """Start a battle, optionally with a given player state and enemy."""
+        self.player_hp = player_hp
+        self.player_hp_max = player_hp_max
+        self.focus = focus
+        self.agility = agility
+        self.enemy = enemy if enemy is not None else Enemy("Fly", 80, 5, ENEMY_MOVES["fly"])
         self.enemy.choose_intent()
         self.over = False
         self.won = False
         self.phase = "player"
-        self.message = "A wild Fly appears!"
+        self.message = f"A wild {self.enemy.name} appears!"
         self._queued_attack = False
         self.luna_attacked = False
         self.nine_lives = False
         self.statuses = {}
-        self.inventory = {"wet_food": 3, "catnip": 2, "milk": 1}
+        self.inventory = dict(inventory) if inventory is not None else {"wet_food": 4, "catnip": 3, "milk": 2}
 
     @staticmethod
     def dodge_chance(agility):
@@ -199,11 +202,13 @@ class Battle:
         return None
 
     def rest(self):
-        """Skip the turn to regain focus, then give the turn to the enemy."""
+        """Skip the turn to regain focus and HP, then give the turn to the enemy."""
         self.luna_attacked = False
         gained = min(self.REST_GAIN, self.MAX_FOCUS - self.focus)
         self.focus += gained
-        self.message = f"You rest and regain {gained} focus."
+        healed = min(self.REST_HEAL, self.player_hp_max - self.player_hp)
+        self.player_hp += healed
+        self.message = f"You rest and regain {gained} focus and {healed} HP."
         self.phase = "enemy"
 
     def can_use_instinct(self, name):
@@ -228,10 +233,11 @@ class Battle:
         apply_status(self.statuses, "night_vision")
         self._say("Luna's eyes sharpen, reading the enemy's intent!")
 
-    def _instinct_prowl(self):
-        """Raise Luna's agility for two attacks, improving dodge and turn order."""
-        apply_status(self.statuses, "prowl")
-        self._say("Luna prowls; her agility is up!")
+    def _instinct_lick_wounds(self):
+        """Lick wounds to recover HP, capped at max."""
+        healed = min(self.LICK_HEAL, self.player_hp_max - self.player_hp)
+        self.player_hp += healed
+        self._say(f"Luna licks her wounds and recovers {healed} HP!")
 
     def _instinct_yowl(self):
         """Intimidate the enemy so it takes 1.5x damage for two hits."""

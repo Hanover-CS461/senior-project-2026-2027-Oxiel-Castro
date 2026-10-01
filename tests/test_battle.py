@@ -224,6 +224,19 @@ class BattleFlowTest(TestCase):
         self.assertEqual(battle.focus, 28)
         self.assertEqual(battle.phase, "enemy")
 
+    def test_rest_heals_hp(self):
+        battle = Battle()
+        battle.player_hp = 80
+        battle.rest()
+        self.assertEqual(battle.player_hp, 90)
+        self.assertEqual(battle.phase, "enemy")
+
+    def test_rest_heal_capped_at_max(self):
+        battle = Battle()
+        battle.player_hp = 97
+        battle.rest()
+        self.assertEqual(battle.player_hp, 100)
+
     def test_rest_capped_at_max(self):
         battle = Battle()
         battle.focus = Battle.MAX_FOCUS - 5
@@ -249,10 +262,18 @@ class BattleFlowTest(TestCase):
         battle.enemy_turn()
         self.assertEqual(battle.statuses["night_vision"].duration, 2)
 
-    def test_prowl_instinct_boosts_agility(self):
+    def test_lick_wounds_instinct_heals(self):
         battle = Battle()
-        battle.use_instinct("prowl")
-        self.assertEqual(effective_agility(battle.agility, battle.statuses), 3.5)
+        battle.player_hp = 50
+        battle.use_instinct("lick_wounds")
+        self.assertEqual(battle.player_hp, 70)
+        self.assertEqual(battle.focus, 16 - Battle.INSTINCTS["lick_wounds"]["cost"])
+
+    def test_lick_wounds_capped_at_max_hp(self):
+        battle = Battle()
+        battle.player_hp = 95
+        battle.use_instinct("lick_wounds")
+        self.assertEqual(battle.player_hp, 100)
 
     def test_yowl_instinct_intimidates_enemy(self):
         battle = Battle()
@@ -319,16 +340,16 @@ class ItemsTest(TestCase):
 
     def test_starting_inventory(self):
         battle = Battle()
-        self.assertEqual(battle.inventory["wet_food"], 3)
-        self.assertEqual(battle.inventory["catnip"], 2)
-        self.assertEqual(battle.inventory["milk"], 1)
+        self.assertEqual(battle.inventory["wet_food"], 4)
+        self.assertEqual(battle.inventory["catnip"], 3)
+        self.assertEqual(battle.inventory["milk"], 2)
 
     def test_wet_food_heals(self):
         battle = Battle()
         battle.player_hp = 50
         battle.use_item("wet_food")
-        self.assertEqual(battle.player_hp, 75)
-        self.assertEqual(battle.inventory["wet_food"], 2)
+        self.assertEqual(battle.player_hp, 85)
+        self.assertEqual(battle.inventory["wet_food"], 3)
         self.assertEqual(battle.phase, "enemy")
 
     def test_wet_food_capped_at_max_hp(self):
@@ -341,7 +362,7 @@ class ItemsTest(TestCase):
         battle = Battle()
         battle.focus = 10
         battle.use_item("catnip")
-        self.assertEqual(battle.focus, 20)
+        self.assertEqual(battle.focus, 22)
         self.assertIn("riled", battle.statuses)
         self.assertEqual(damage_multipliers(battle.statuses), (1.5, 1.0))
 
@@ -355,7 +376,7 @@ class ItemsTest(TestCase):
         battle = Battle()
         battle.player_hp = 70
         battle.use_item("milk")
-        self.assertEqual(battle.player_hp, 85)
+        self.assertEqual(battle.player_hp, 95)
         self.assertIn("puffed", battle.statuses)
 
     def test_use_item_consumes_turn(self):

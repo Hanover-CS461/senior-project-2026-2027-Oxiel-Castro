@@ -3,6 +3,7 @@ import re
 import pygame
 
 from battle import Battle, ITEMS
+from run import BUILDINGS, Run
 from config import (
     ATTACK_FRAMES,
     COLOR_BATTLE_BG,
@@ -10,12 +11,16 @@ from config import (
     COLOR_FOCUS_BAR,
     COLOR_HP_BAR,
     COLOR_TITLE,
+    DIFFICULTY_COLORS,
+    DIFFICULTY_LABELS,
     ENEMY_DELAY,
-    FLY_FRAMES,
+    ENEMY_SPRITES,
     FONT,
     LUNA_ATTACK_X,
     LUNA_FRAMES,
     LUNA_X,
+    MAP_BATTLE_DELAY,
+    MAP_WALK_TIME,
     MESSAGE_MAX_WIDTH,
     MESSAGE_PAGE_LINES,
     READ_DELAY,
@@ -50,6 +55,8 @@ class Game:
         self.background = pygame.transform.scale(self.background, WINDOW_SIZE)
         self.battle_bg = pygame.image.load("game/assets/battle_bg.png").convert()
         self.battle_bg = pygame.transform.scale(self.battle_bg, WINDOW_SIZE)
+        self.campus_bg = pygame.image.load("game/assets/campus.png").convert()
+        self.campus_bg = pygame.transform.scale(self.campus_bg, WINDOW_SIZE)
 
         self.luna_frames = load_frames(
             "game/assets/Luna2.png", LUNA_FRAMES, size=(132, 96)
@@ -57,15 +64,27 @@ class Game:
         self.walk_frames = load_frames(
             "game/assets/Luna2.png", WALK_FRAMES, scale=5
         )
-        self.fly_frames = load_frames("game/assets/fly.png", FLY_FRAMES, scale=5, flip=True)
+        self.enemy_frames = {
+            key: load_frames(
+                spec["path"], spec["frames"], scale=spec["scale"],
+                flip=(key == "fly"), normalize=True,
+            )
+            for key, spec in ENEMY_SPRITES.items()
+        }
         self.luna_attack_frames = load_frames(
             "game/assets/Luna2.png", ATTACK_FRAMES, scale=5
+        )
+        self.map_idle_frames = load_frames(
+            "game/assets/Luna2.png", LUNA_FRAMES, scale=2
+        )
+        self.map_walk_frames = load_frames(
+            "game/assets/Luna2.png", WALK_FRAMES, scale=2
         )
 
         self.anim_index = 0
         self.anim_timer = 0
-        self.fly_index = 0
-        self.fly_timer = 0
+        self.enemy_anim_index = 0
+        self.enemy_anim_timer = 0
         self.attack_state = None
         self.attack_index = 0
         self.attack_timer = 0
@@ -86,7 +105,7 @@ class Game:
         ]
         self.instinct_spots = [
             ("night_vision", 140, 430),
-            ("prowl", 380, 430),
+            ("lick_wounds", 380, 430),
             ("yowl", 140, 490),
             ("nine_lives", 380, 490),
         ]
@@ -101,7 +120,24 @@ class Game:
         self.back_button = Button(620, 430, 140, 55, "Back", "back")
         self.submenu = None
         self.menu_button = Button(300, 400, 200, 60, "Menu", "menu")
+        self.seed_box = pygame.Rect(20, 540, 200, 40)
+        self.seed_text = ""
+        self.seed_focus = False
 
+        self.map_buttons = [
+            Button(560, 380, 120, 40, BUILDINGS[0]["name"], BUILDINGS[0]["name"]),
+            Button(260, 135, 120, 40, BUILDINGS[1]["name"], BUILDINGS[1]["name"]),
+            Button(260, 380, 120, 40, BUILDINGS[2]["name"], BUILDINGS[2]["name"]),
+            Button(490, 550, 120, 40, BUILDINGS[3]["name"], BUILDINGS[3]["name"]),
+        ]
+        self.building_button = None
+        self.map_luna_pos = pygame.Vector2(160, 60)
+        self.map_move = None
+        self.map_arrive_timer = 0
+        self.map_walk_index = 0
+        self.map_walk_timer = 0
+        self.pending_battle = None
+        self.run_state = None
         self.battle = None
         self.enemy_phase = False
         self.enemy_timer = 0
@@ -124,9 +160,81 @@ class Game:
         self.screen.blit(title_surface2, title_rect2)
         for button in self.buttons:
             button.draw(self.screen, self.font)
+        draw_outlined_text(self.screen, self.small_font, "Seed (optional):", (20, 500))
+        pygame.draw.rect(self.screen, (30, 144, 255), self.seed_box, border_radius=5)
+        pygame.draw.rect(self.screen, (0, 0, 0), self.seed_box, width=3, border_radius=5)
+        label = self.seed_text if self.seed_text else "random"
+        seed_surface = self.small_font.render(label, True, (255, 255, 255))
+        self.screen.blit(seed_surface, (self.seed_box.x + 8, self.seed_box.y + 4))
+
+    def draw_map(self):
+        """Draw the campus map with building choices and run status."""
+        self.screen.blit(self.campus_bg, (0, 0))
+        draw_outlined_text(self.screen, self.title_font, "Choose a building", (430, 50))
+        for button in self.map_buttons:
+            if self.run_state.is_cleared(button.action):
+                draw_disabled_button(self.screen, button, self.small_font)
+            else:
+                button.draw(self.screen, self.small_font)
+            tier = self.run_state.building_by_name(button.action)["tier"]
+            label = DIFFICULTY_LABELS[tier]
+            y = button.rect.centery - self.small_font.size(label)[1] // 2
+            draw_outlined_text(
+                self.screen, self.small_font, label,
+                (button.rect.right + 10, y), color=DIFFICULTY_COLORS[tier],
+            )
+        draw_outlined_text(
+            self.screen, self.small_font,
+            f"Seed: {self.run_state.seed}", (40, 500),
+        )
+        draw_outlined_text(
+            self.screen, self.small_font,
+            f"HP {self.run_state.player_hp}/{self.run_state.player_hp_max}   Focus {self.run_state.focus}",
+            (40, 540),
+        )
+        if self.run_state.last_reward:
+            draw_outlined_text(
+                self.screen, self.small_font,
+                f"Reward: +1 {ITEMS[self.run_state.last_reward]['name']}",
+                (40, 570), color=COLOR_TITLE,
+            )
+        if self.map_move is not None:
+            frame = self.map_walk_frames[self.map_walk_index]
+        else:
+            frame = self.map_idle_frames[self.anim_index]
+        self.screen.blit(frame, (self.map_luna_pos.x - frame.get_width() // 2,
+                                 self.map_luna_pos.y - frame.get_height() // 2))
+
+    def _start_battle_for(self, name):
+        """Start the battle for a building once Luna reaches it."""
+        self.battle = self.run_state.start_battle(name)
+        self._reset_battle()
+        self.state = "battle"
+
+    def update_map(self):
+        """Advance Luna's walk to the chosen building on the campus map."""
+        now = pygame.time.get_ticks()
+        if self.map_move is not None:
+            start, end, start_time, duration = self.map_move
+            progress = min(1.0, (now - start_time) / duration)
+            if now - self.map_walk_timer > 90:
+                self.map_walk_timer = now
+                self.map_walk_index = (self.map_walk_index + 1) % len(self.map_walk_frames)
+            self.map_luna_pos = start.lerp(end, progress)
+            if progress >= 1.0:
+                self.map_move = None
+                self.map_arrive_timer = now
+            return
+        if self.pending_battle is not None and now - self.map_arrive_timer > MAP_BATTLE_DELAY:
+            name, self.pending_battle = self.pending_battle, None
+            self._start_battle_for(name)
+            return
+        if now - self.anim_timer > 200:
+            self.anim_timer = now
+            self.anim_index = (self.anim_index + 1) % len(self.map_idle_frames)
 
     def _update_animations(self, now):
-        """Advance the cat and fly animation frames based on elapsed time."""
+        """Advance the cat and enemy animation frames based on elapsed time."""
         if self.attack_state == "walk_to":
             progress = min(1.0, (now - self.attack_timer) / WALK_TIME)
             self.luna_x = LUNA_X + (LUNA_ATTACK_X - LUNA_X) * progress
@@ -156,9 +264,11 @@ class Game:
         elif now - self.anim_timer > 150:
             self.anim_timer = now
             self.anim_index = (self.anim_index + 1) % len(self.luna_frames)
-        if now - self.fly_timer > 70:
-            self.fly_timer = now
-            self.fly_index = (self.fly_index + 1) % len(self.fly_frames)
+        if now - self.enemy_anim_timer > 70:
+            self.enemy_anim_timer = now
+            self.enemy_anim_index = (self.enemy_anim_index + 1) % len(
+                self.enemy_frames[self.battle.enemy.sprite]
+            )
 
     def draw_battle(self):
         """Draw the battle screen: sprites, bars, message, and buttons."""
@@ -171,8 +281,9 @@ class Game:
         else:
             luna = self.luna_frames[self.anim_index]
         self.screen.blit(luna, (self.luna_x, 340))
-        fly = self.fly_frames[self.fly_index]
-        self.screen.blit(fly, (620 - fly.get_width() // 2, 360 - fly.get_height() // 2))
+        enemy_frames = self.enemy_frames[self.battle.enemy.sprite]
+        enemy = enemy_frames[self.enemy_anim_index % len(enemy_frames)]
+        self.screen.blit(enemy, (620 - enemy.get_width() // 2, 360 - enemy.get_height() // 2))
 
         draw_outlined_text(
             self.screen, self.small_font,
@@ -180,7 +291,7 @@ class Game:
         )
         draw_outlined_text(
             self.screen, self.small_font,
-            f"Fly HP {self.battle.enemy.hp}/{self.battle.enemy.max_hp}", (460, 30),
+            f"{self.battle.enemy.name} HP {self.battle.enemy.hp}/{self.battle.enemy.max_hp}", (460, 30),
         )
         draw_outlined_text(
             self.screen, self.small_font,
@@ -258,20 +369,36 @@ class Game:
     def handle_click(self, pos):
         """Route a mouse click to the current screen's buttons."""
         if self.state == "menu":
+            if self.seed_box.collidepoint(pos):
+                self.seed_focus = True
+            else:
+                self.seed_focus = False
             for button in self.buttons:
                 if button.rect.collidepoint(pos):
                     if button.action == "start":
-                        self.battle = Battle()
-                        self.enemy_phase = False
-                        self.enemy_timer = 0
-                        self.submenu = None
-                        self._message_pages = []
-                        self._message_page = 0
-                        self._message_timer = 0
-                        self._last_message = None
-                        self.state = "battle"
+                        seed = int(self.seed_text) if self.seed_text.isdigit() else None
+                        self.run_state = Run(seed=seed)
+                        self.map_luna_pos = pygame.Vector2(400, 70)
+                        self.map_move = None
+                        self.map_arrive_timer = 0
+                        self.pending_battle = None
+                        self.state = "map"
                     elif button.action == "quit":
                         self.running = False
+        elif self.state == "map":
+            if self.map_move is not None:
+                return
+            for button in self.map_buttons:
+                if button.rect.collidepoint(pos) and not self.run_state.is_cleared(button.action):
+                    self.map_move = (
+                        self.map_luna_pos.copy(),
+                        pygame.Vector2(button.rect.centerx, button.rect.centery + 50),
+                        pygame.time.get_ticks(),
+                        MAP_WALK_TIME,
+                    )
+                    self.pending_battle = button.action
+                    self.map_walk_index = 0
+                    self.map_walk_timer = 0
         elif self.state == "battle":
             if self.battle.phase == "player" and not self.enemy_phase:
                 if self.submenu == "instincts":
@@ -307,13 +434,35 @@ class Game:
                             elif button.action == "instincts":
                                 self.submenu = "instincts"
                 if self.battle.over:
-                    self.state = "victory" if self.battle.won else "defeat"
+                    self._finish_battle()
                 elif self.battle.phase == "enemy":
                     self.enemy_phase = True
                     self.enemy_timer = pygame.time.get_ticks()
         elif self.state in ("victory", "defeat"):
             if self.menu_button.rect.collidepoint(pos):
                 self.state = "menu"
+
+    def _reset_battle(self):
+        """Clear per-battle animation and message state for a fresh fight."""
+        self.enemy_phase = False
+        self.enemy_timer = 0
+        self.submenu = None
+        self.attack_state = None
+        self.attack_index = 0
+        self._message_pages = []
+        self._message_page = 0
+        self._message_timer = 0
+        self._last_message = None
+
+    def _finish_battle(self):
+        """Record the battle result in the run and pick the next screen."""
+        self.run_state.end_battle(self.battle)
+        if self.run_state.lost:
+            self.state = "defeat"
+        elif self.run_state.won:
+            self.state = "victory"
+        else:
+            self.state = "map"
 
     def _message_sentences(self, msg):
         """Split a battle message into its individual narration sentences."""
@@ -379,7 +528,7 @@ class Game:
                     self.attack_timer = pygame.time.get_ticks()
                     self.battle.luna_attacked = False
                 if self.battle.over:
-                    self.state = "victory" if self.battle.won else "defeat"
+                    self._finish_battle()
         elif self._message_done() and now - self._message_timer > READ_DELAY:
             self.enemy_phase = False
         else:
@@ -392,17 +541,27 @@ class Game:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self.running = False
+                if event.type == pygame.KEYDOWN and self.seed_focus:
+                    if event.key == pygame.K_BACKSPACE:
+                        self.seed_text = self.seed_text[:-1]
+                    elif event.key == pygame.K_RETURN:
+                        self.seed_focus = False
+                    elif event.unicode.isdigit():
+                        self.seed_text += event.unicode
                 if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                     self.handle_click(event.pos)
             if self.state == "menu":
                 self.draw_menu()
+            elif self.state == "map":
+                self.draw_map()
+                self.update_map()
             elif self.state == "battle":
                 self.draw_battle()
                 self.update_battle()
             elif self.state == "victory":
-                self.draw_end("You win! The fly is gone.")
+                self.draw_end("You found your human!")
             elif self.state == "defeat":
-                self.draw_end("You were defeated.")
+                self.draw_end("Luna was defeated.")
             pygame.display.flip()
             self.clock.tick(60)
         pygame.quit()

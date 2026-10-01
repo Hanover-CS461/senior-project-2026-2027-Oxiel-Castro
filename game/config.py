@@ -5,9 +5,20 @@ READ_DELAY = 600
 MESSAGE_PAGE_LINES = 5
 MESSAGE_MAX_WIDTH = 720
 
+# Difficulty label and color for each building tier.
+DIFFICULTY_LABELS = {0: "Easy", 1: "Medium", 2: "Hard", 3: "Very Hard"}
+DIFFICULTY_COLORS = {
+    0: (120, 220, 120),
+    1: (255, 220, 80),
+    2: (255, 160, 60),
+    3: (255, 80, 80),
+}
+
 LUNA_X = 60
 LUNA_ATTACK_X = 470
 WALK_TIME = 400
+MAP_WALK_TIME = 1400
+MAP_BATTLE_DELAY = 400
 
 COLOR_BLACK = (0, 0, 0)
 COLOR_WHITE = (255, 255, 255)
@@ -49,6 +60,58 @@ FLY_FRAMES = [
     (168, 121, 17, 7),
     (200, 122, 17, 6),
 ]
+
+SNAKE_FRAMES = [
+    (0, 11, 31, 21),
+    (32, 11, 32, 21),
+    (64, 11, 32, 21),
+    (96, 11, 31, 21),
+    (128, 11, 31, 21),
+    (160, 12, 31, 20),
+    (192, 12, 31, 20),
+]
+
+SPIDER2_FRAMES = [
+    (10, 24, 11, 8),
+    (42, 25, 12, 7),
+    (74, 25, 12, 7),
+    (106, 24, 11, 8),
+    (138, 23, 11, 9),
+]
+
+RAT_FRAMES = [
+    (9, 23, 14, 9),
+    (41, 23, 13, 9),
+    (73, 23, 15, 9),
+    (105, 23, 16, 9),
+    (137, 24, 14, 8),
+    (169, 24, 14, 8),
+    (201, 24, 13, 8),
+    (233, 24, 13, 8),
+    (265, 24, 14, 8),
+    (297, 24, 14, 8),
+]
+
+BAT_FRAMES = [
+    (7, 173, 18, 8),
+    (40, 172, 16, 10),
+    (74, 172, 12, 11),
+    (105, 173, 14, 11),
+    (135, 175, 18, 9),
+    (166, 175, 20, 8),
+    (198, 175, 21, 7),
+    (232, 174, 17, 7),
+    (264, 173, 17, 7),
+    (295, 173, 19, 8),
+]
+
+ENEMY_SPRITES = {
+    "fly": {"path": "game/assets/enemies/fly.png", "scale": 5, "frames": FLY_FRAMES},
+    "snake": {"path": "game/assets/enemies/snake.png", "scale": 4, "frames": SNAKE_FRAMES},
+    "spider_2": {"path": "game/assets/enemies/spider_2.png", "scale": 8, "frames": SPIDER2_FRAMES},
+    "rat": {"path": "game/assets/enemies/rat_and_bat.png", "scale": 12, "frames": RAT_FRAMES},
+    "bat": {"path": "game/assets/enemies/rat_and_bat.png", "scale": 6, "frames": BAT_FRAMES},
+}
 
 ATTACK_FRAMES = [
     (5, 456, 25, 17),
