@@ -30,6 +30,18 @@ jobs:
       - name: Copy slide assets
         run: cp -r slides/assets _site/slides/assets
         working-directory: proposal
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - name: Install pygodide
+        run: pip install pygodide
+      - name: Build game for the web
+        run: pygodide build . --clean
+      - name: Copy game into the site
+        run: |
+          mkdir -p proposal/_site/game
+          cp -r build/index.html build/boot.js build/app.zip build/favicon.svg build/pygodide-logo.svg proposal/_site/game/
       - name: Upload pages artifact
         uses: actions/upload-pages-artifact@v3
         with:

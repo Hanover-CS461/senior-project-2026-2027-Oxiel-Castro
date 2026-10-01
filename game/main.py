@@ -1,4 +1,6 @@
+import asyncio
 import re
+import sys
 
 import pygame
 
@@ -39,10 +41,12 @@ class Game:
     def __init__(self):
         """Set up pygame, load assets, and create the UI buttons."""
         pygame.init()
-        pygame.mixer.init()
-
-        pygame.mixer.music.load("game/assets/music/POL-chubby-cat.wav")
-        pygame.mixer.music.play(loops=-1)
+        try:
+            pygame.mixer.init()
+            pygame.mixer.music.load("game/assets/music/POL-chubby-cat.wav")
+            pygame.mixer.music.play(loops=-1)
+        except pygame.error:
+            pass
         self.screen = pygame.display.set_mode(WINDOW_SIZE)
         pygame.display.set_caption("Luna - a Hanover College Mystery")
         self.clock = pygame.time.Clock()
@@ -534,38 +538,59 @@ class Game:
         else:
             self._advance_message(now)
 
+    def frame(self):
+        """Process input and draw one frame of the game."""
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                self.running = False
+            if event.type == pygame.KEYDOWN and self.seed_focus:
+                if event.key == pygame.K_BACKSPACE:
+                    self.seed_text = self.seed_text[:-1]
+                elif event.key == pygame.K_RETURN:
+                    self.seed_focus = False
+                elif event.unicode.isdigit():
+                    self.seed_text += event.unicode
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                self.handle_click(event.pos)
+        if self.state == "menu":
+            self.draw_menu()
+        elif self.state == "map":
+            self.draw_map()
+            self.update_map()
+        elif self.state == "battle":
+            self.draw_battle()
+            self.update_battle()
+        elif self.state == "victory":
+            self.draw_end("You found your human!")
+        elif self.state == "defeat":
+            self.draw_end("Luna was defeated.")
+        pygame.display.flip()
+
     def run(self):
         """Run the main loop: handle events, draw the state, flip the display."""
         self.running = True
         while self.running:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    self.running = False
-                if event.type == pygame.KEYDOWN and self.seed_focus:
-                    if event.key == pygame.K_BACKSPACE:
-                        self.seed_text = self.seed_text[:-1]
-                    elif event.key == pygame.K_RETURN:
-                        self.seed_focus = False
-                    elif event.unicode.isdigit():
-                        self.seed_text += event.unicode
-                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                    self.handle_click(event.pos)
-            if self.state == "menu":
-                self.draw_menu()
-            elif self.state == "map":
-                self.draw_map()
-                self.update_map()
-            elif self.state == "battle":
-                self.draw_battle()
-                self.update_battle()
-            elif self.state == "victory":
-                self.draw_end("You found your human!")
-            elif self.state == "defeat":
-                self.draw_end("Luna was defeated.")
-            pygame.display.flip()
+            self.frame()
             self.clock.tick(60)
         pygame.quit()
 
 
-if __name__ == "__main__":
+def main():
+    """Desktop entry point."""
     Game().run()
+
+
+async def web_main():
+    """Browser entry point for pygodide: yields to the browser each frame."""
+    game = Game()
+    game.running = True
+    clock = pygame.time.Clock()
+    while game.running:
+        game.frame()
+        clock.tick(60)
+        await asyncio.sleep(1 / 120)
+    pygame.quit()
+
+
+if __name__ == "__main__":
+    main()

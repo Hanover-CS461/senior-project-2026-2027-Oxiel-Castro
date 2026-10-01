@@ -2,3 +2,4 @@ proposal/_site
 proposal/tmp
 __pycache__/
 *.py[cod]
+build/

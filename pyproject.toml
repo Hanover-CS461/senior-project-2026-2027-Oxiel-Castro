@@ -1,0 +1,13 @@
+[project]
+name = "luna"
+version = "0.1.0"
+description = "Luna - a Hanover College Mystery"
+requires-python = ">=3.11"
+dependencies = ["pygame-ce"]
+
+[tool.pygodide]
+app = "game.main:web_main"
+title = "Luna - a Hanover College Mystery"
+include = ["game/**"]
+canvas-width = 800
+canvas-height = 600
