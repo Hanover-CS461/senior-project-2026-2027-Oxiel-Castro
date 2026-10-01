@@ -55,7 +55,7 @@
     - The site hosts thousands of asset packs, searchable and filterable by price and license, which helped me find sprite sheets that fit Luna's style.
     - In-game assets sourced from itch.io:
       - `game/assets/Luna.png` — Luna's sprite sheet (idle, walk, and attack frames)
-      - `game/assets/fly.png` — the fly enemy's sprite sheet
+      - `game/assets/enemies/fly.png` — the fly enemy's sprite sheet
   - [OpenGameArt](https://opengameart.org/)
     - Is a primary source — a community repository of free game assets (2D art, sprites, textures, music, and sound effects) contributed by artists under open licenses.
     - It's a development resource — the background, font, and music for Luna were sourced from it.
