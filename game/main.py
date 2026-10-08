@@ -1,4 +1,5 @@
 import asyncio
+import math
 import re
 import sys
 
@@ -17,6 +18,7 @@ from config import (
     DIFFICULTY_LABELS,
     ENEMY_DELAY,
     ENEMY_SPRITES,
+    FADE_TIME,
     FONT,
     LUNA_ATTACK_X,
     LUNA_FRAMES,
@@ -29,9 +31,11 @@ from config import (
     WALK_FRAMES,
     WALK_TIME,
     WINDOW_SIZE,
+    WIPE_TIME,
     COLOR_WHITE,
 )
 from sprites import load_frames
+from story import Story
 from ui import Button, draw_bar, draw_disabled_button, draw_outlined_text
 
 
@@ -55,18 +59,18 @@ class Game:
         self.title_font = pygame.font.Font(FONT, 60)
         self.state = "menu"
 
-        self.background = pygame.image.load("game/assets/background.png").convert()
+        self.background = pygame.image.load("game/assets/images/background.png").convert()
         self.background = pygame.transform.scale(self.background, WINDOW_SIZE)
-        self.battle_bg = pygame.image.load("game/assets/battle_bg.png").convert()
+        self.battle_bg = pygame.image.load("game/assets/images/battle_bg.png").convert()
         self.battle_bg = pygame.transform.scale(self.battle_bg, WINDOW_SIZE)
-        self.campus_bg = pygame.image.load("game/assets/campus.png").convert()
+        self.campus_bg = pygame.image.load("game/assets/images/campus.png").convert()
         self.campus_bg = pygame.transform.scale(self.campus_bg, WINDOW_SIZE)
 
         self.luna_frames = load_frames(
-            "game/assets/Luna2.png", LUNA_FRAMES, size=(132, 96)
+            "game/assets/images/Luna2.png", LUNA_FRAMES, size=(132, 96)
         )
         self.walk_frames = load_frames(
-            "game/assets/Luna2.png", WALK_FRAMES, scale=5
+            "game/assets/images/Luna2.png", WALK_FRAMES, scale=5
         )
         self.enemy_frames = {
             key: load_frames(
@@ -76,13 +80,13 @@ class Game:
             for key, spec in ENEMY_SPRITES.items()
         }
         self.luna_attack_frames = load_frames(
-            "game/assets/Luna2.png", ATTACK_FRAMES, scale=5
+            "game/assets/images/Luna2.png", ATTACK_FRAMES, scale=5
         )
         self.map_idle_frames = load_frames(
-            "game/assets/Luna2.png", LUNA_FRAMES, scale=2
+            "game/assets/images/Luna2.png", LUNA_FRAMES, scale=2
         )
         self.map_walk_frames = load_frames(
-            "game/assets/Luna2.png", WALK_FRAMES, scale=2
+            "game/assets/images/Luna2.png", WALK_FRAMES, scale=2
         )
 
         self.anim_index = 0
@@ -149,6 +153,17 @@ class Game:
         self._message_page = 0
         self._message_timer = 0
         self._last_message = None
+
+        self.story = None
+        self.intro_start = 0
+        self.skip_button = Button(660, 545, 120, 40, "Skip", "skip")
+        self.fade_phase = None
+        self.fade_start = 0
+        self.fade_next = None
+        self.fade_surface = pygame.Surface(WINDOW_SIZE)
+        self.fade_surface.fill((0, 0, 0))
+        self.wipe = None
+        self._scene_cache = {}
 
     def draw_menu(self):
         """Draw the title screen with background, title, and menu buttons."""
@@ -231,7 +246,7 @@ class Game:
             return
         if self.pending_battle is not None and now - self.map_arrive_timer > MAP_BATTLE_DELAY:
             name, self.pending_battle = self.pending_battle, None
-            self._start_battle_for(name)
+            self._start_wipe(lambda: self._start_battle_for(name))
             return
         if now - self.anim_timer > 200:
             self.anim_timer = now
@@ -370,8 +385,156 @@ class Game:
         self.screen.blit(text, text_rect)
         self.menu_button.draw(self.screen, self.font)
 
+    def draw_intro(self):
+        """Draw the current intro scene: image, revealed line, and skip button."""
+        scene = self.story.scene() if self.story else None
+        if scene is None:
+            return
+        self.screen.blit(self._scene_image(scene["image"]), (0, 0))
+        elapsed = pygame.time.get_ticks() - self.intro_start
+        line = self.story.visible_line(elapsed)
+        if line:
+            wrapped = self._wrap_lines([line], self.small_font, MESSAGE_MAX_WIDTH)
+            y = 430
+            for part in wrapped:
+                width = self.small_font.size(part)[0]
+                draw_outlined_text(
+                    self.screen, self.small_font, part,
+                    ((WINDOW_SIZE[0] - width) // 2, y),
+                )
+                y += 36
+        if self.story.reveal_done(elapsed):
+            hint = "click to continue"
+            width = self.small_font.size(hint)[0]
+            draw_outlined_text(
+                self.screen, self.small_font, hint,
+                ((WINDOW_SIZE[0] - width) // 2, 545), color=(200, 200, 200),
+            )
+        self.skip_button.draw(self.screen, self.small_font)
+
+    def _scene_image(self, path):
+        """Load and cache a scene image, falling back to the menu background."""
+        if path in self._scene_cache:
+            return self._scene_cache[path]
+        image = self.background
+        try:
+            loaded = pygame.image.load(path).convert()
+            image = pygame.transform.scale(loaded, WINDOW_SIZE)
+        except (pygame.error, FileNotFoundError, TypeError):
+            image = self.background
+        self._scene_cache[path] = image
+        return image
+
+    def _start_fade(self, next_action):
+        """Begin a through-black fade, running next_action at full black."""
+        if self.fade_phase is not None:
+            return
+        self.fade_phase = "out"
+        self.fade_start = pygame.time.get_ticks()
+        self.fade_next = next_action
+
+    def _draw_fade(self):
+        """Overlay a black surface whose alpha animates the fade."""
+        if self.fade_phase is None:
+            return
+        now = pygame.time.get_ticks()
+        progress = min(1.0, (now - self.fade_start) / FADE_TIME)
+        if self.fade_phase == "out":
+            alpha = int(255 * progress)
+            if progress >= 1.0:
+                action, self.fade_next = self.fade_next, None
+                if action:
+                    action()
+                self.fade_phase = "in"
+                self.fade_start = now
+        else:
+            alpha = int(255 * (1.0 - progress))
+            if progress >= 1.0:
+                self.fade_phase = None
+        if alpha > 0:
+            self.fade_surface.set_alpha(alpha)
+            self.screen.blit(self.fade_surface, (0, 0))
+
+    def _begin_intro(self):
+        """Create a fresh intro and switch to it, called at full black."""
+        self.story = Story()
+        self.intro_start = pygame.time.get_ticks()
+        self.state = "intro"
+
+    def _intro_advance(self):
+        """Snap the current scene to its last line, or move to the next."""
+        now = pygame.time.get_ticks()
+        elapsed = now - self.intro_start
+        if not self.story.reveal_done(elapsed):
+            self.intro_start = now - self.story.snap()
+        else:
+            self._advance_intro()
+
+    def _advance_intro(self):
+        """Fade to the next scene, or to the map after the final scene."""
+        def at_black():
+            if not self.story.advance():
+                self.state = "map"
+            else:
+                self.intro_start = pygame.time.get_ticks()
+
+        self._start_fade(at_black)
+
+    def _skip_intro(self):
+        """Fade straight to the map."""
+        self._start_fade(self._enter_map)
+
+    def _enter_map(self):
+        """Switch to the campus map, called at full black."""
+        self.state = "map"
+
+    def _start_wipe(self, next_action):
+        """Begin a rotating radial wipe, running next_action immediately."""
+        self.wipe = {
+            "from": self.screen.copy(),
+            "start": pygame.time.get_ticks(),
+            "center": (WINDOW_SIZE[0] // 2, WINDOW_SIZE[1] // 2),
+            "radius": 540,
+            "start_angle": -90,
+        }
+        next_action()
+
+    def _wedge_points(self, swept):
+        """Return the polygon points of a pie wedge swept by degrees."""
+        cx, cy = self.wipe["center"]
+        radius = self.wipe["radius"]
+        start = self.wipe["start_angle"]
+        steps = max(1, int(swept / 6))
+        points = [(cx, cy)]
+        for i in range(steps + 1):
+            angle = math.radians(start + swept * i / steps)
+            points.append(
+                (int(cx + radius * math.cos(angle)),
+                 int(cy + radius * math.sin(angle)))
+            )
+        return points
+
+    def _draw_wipe(self):
+        """Reveal the current screen through a growing, rotating wedge."""
+        if self.wipe is None:
+            return
+        now = pygame.time.get_ticks()
+        progress = min(1.0, (now - self.wipe["start"]) / WIPE_TIME)
+        mask = pygame.Surface(WINDOW_SIZE, pygame.SRCALPHA)
+        mask.fill((255, 255, 255, 255))
+        points = self._wedge_points(progress * 360.0)
+        if len(points) >= 3:
+            pygame.draw.polygon(mask, (255, 255, 255, 0), points)
+        layer = self.wipe["from"].convert_alpha()
+        layer.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+        self.screen.blit(layer, (0, 0))
+        if progress >= 1.0:
+            self.wipe = None
+
     def handle_click(self, pos):
         """Route a mouse click to the current screen's buttons."""
+        if self.fade_phase is not None or self.wipe is not None:
+            return
         if self.state == "menu":
             if self.seed_box.collidepoint(pos):
                 self.seed_focus = True
@@ -386,9 +549,14 @@ class Game:
                         self.map_move = None
                         self.map_arrive_timer = 0
                         self.pending_battle = None
-                        self.state = "map"
+                        self._start_fade(self._begin_intro)
                     elif button.action == "quit":
                         self.running = False
+        elif self.state == "intro":
+            if self.skip_button.rect.collidepoint(pos):
+                self._skip_intro()
+            else:
+                self._intro_advance()
         elif self.state == "map":
             if self.map_move is not None:
                 return
@@ -550,10 +718,18 @@ class Game:
                     self.seed_focus = False
                 elif event.unicode.isdigit():
                     self.seed_text += event.unicode
+            if event.type == pygame.KEYDOWN and self.state == "intro":
+                if self.fade_phase is None:
+                    if event.key in (pygame.K_SPACE, pygame.K_RETURN, pygame.K_KP_ENTER):
+                        self._intro_advance()
+                    elif event.key == pygame.K_ESCAPE:
+                        self._skip_intro()
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 self.handle_click(event.pos)
         if self.state == "menu":
             self.draw_menu()
+        elif self.state == "intro":
+            self.draw_intro()
         elif self.state == "map":
             self.draw_map()
             self.update_map()
@@ -561,9 +737,11 @@ class Game:
             self.draw_battle()
             self.update_battle()
         elif self.state == "victory":
-            self.draw_end("You found your human!")
+            self.draw_end("Luna found Oxiel!")
         elif self.state == "defeat":
             self.draw_end("Luna was defeated.")
+        self._draw_wipe()
+        self._draw_fade()
         pygame.display.flip()
 
     def run(self):

@@ -19,6 +19,8 @@ LUNA_ATTACK_X = 470
 WALK_TIME = 400
 MAP_WALK_TIME = 1400
 MAP_BATTLE_DELAY = 400
+FADE_TIME = 400
+WIPE_TIME = 1200
 
 COLOR_BLACK = (0, 0, 0)
 COLOR_WHITE = (255, 255, 255)
@@ -106,11 +108,11 @@ BAT_FRAMES = [
 ]
 
 ENEMY_SPRITES = {
-    "fly": {"path": "game/assets/enemies/fly.png", "scale": 5, "frames": FLY_FRAMES},
-    "snake": {"path": "game/assets/enemies/snake.png", "scale": 4, "frames": SNAKE_FRAMES},
-    "spider_2": {"path": "game/assets/enemies/spider_2.png", "scale": 8, "frames": SPIDER2_FRAMES},
-    "rat": {"path": "game/assets/enemies/rat_and_bat.png", "scale": 12, "frames": RAT_FRAMES},
-    "bat": {"path": "game/assets/enemies/rat_and_bat.png", "scale": 6, "frames": BAT_FRAMES},
+    "fly": {"path": "game/assets/images/enemies/fly.png", "scale": 5, "frames": FLY_FRAMES},
+    "snake": {"path": "game/assets/images/enemies/snake.png", "scale": 4, "frames": SNAKE_FRAMES},
+    "spider_2": {"path": "game/assets/images/enemies/spider_2.png", "scale": 8, "frames": SPIDER2_FRAMES},
+    "rat": {"path": "game/assets/images/enemies/rat_and_bat.png", "scale": 12, "frames": RAT_FRAMES},
+    "bat": {"path": "game/assets/images/enemies/rat_and_bat.png", "scale": 6, "frames": BAT_FRAMES},
 }
 
 ATTACK_FRAMES = [
