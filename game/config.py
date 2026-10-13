@@ -5,21 +5,13 @@ READ_DELAY = 600
 MESSAGE_PAGE_LINES = 5
 MESSAGE_MAX_WIDTH = 720
 
-# Difficulty label and color for each building tier.
-DIFFICULTY_LABELS = {0: "Easy", 1: "Medium", 2: "Hard", 3: "Very Hard"}
-DIFFICULTY_COLORS = {
-    0: (120, 220, 120),
-    1: (255, 220, 80),
-    2: (255, 160, 60),
-    3: (255, 80, 80),
-}
-
 LUNA_X = 60
 LUNA_ATTACK_X = 470
 WALK_TIME = 400
 MAP_WALK_TIME = 1400
 MAP_BATTLE_DELAY = 400
 FADE_TIME = 400
+SPIRAL_TIME = 1200
 WIPE_TIME = 1200
 
 COLOR_BLACK = (0, 0, 0)

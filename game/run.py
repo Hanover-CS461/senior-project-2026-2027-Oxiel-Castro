@@ -3,11 +3,13 @@ import random
 from battle import Battle, Enemy, ITEMS
 
 
+DIFFICULTY_TIER = 1
+
 BUILDINGS = [
-    {"name": "Lynn Hall", "tier": 0, "sprite": "bat"},
-    {"name": "Horner", "tier": 1, "sprite": "snake"},
-    {"name": "KP", "tier": 2, "sprite": "spider_2"},
-    {"name": "CC", "tier": 3, "sprite": "fly"},
+    {"name": "Lynn Hall", "tier": DIFFICULTY_TIER, "sprite": "bat"},
+    {"name": "Horner", "tier": DIFFICULTY_TIER, "sprite": "snake"},
+    {"name": "KP", "tier": DIFFICULTY_TIER, "sprite": "spider_2"},
+    {"name": "CC", "tier": DIFFICULTY_TIER, "sprite": "fly"},
 ]
 
 GUARD_MOVES = [

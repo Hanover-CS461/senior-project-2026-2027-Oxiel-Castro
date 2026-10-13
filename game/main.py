@@ -14,8 +14,6 @@ from config import (
     COLOR_FOCUS_BAR,
     COLOR_HP_BAR,
     COLOR_TITLE,
-    DIFFICULTY_COLORS,
-    DIFFICULTY_LABELS,
     ENEMY_DELAY,
     ENEMY_SPRITES,
     FADE_TIME,
@@ -28,6 +26,7 @@ from config import (
     MESSAGE_MAX_WIDTH,
     MESSAGE_PAGE_LINES,
     READ_DELAY,
+    SPIRAL_TIME,
     WALK_FRAMES,
     WALK_TIME,
     WINDOW_SIZE,
@@ -162,6 +161,9 @@ class Game:
         self.fade_next = None
         self.fade_surface = pygame.Surface(WINDOW_SIZE)
         self.fade_surface.fill((0, 0, 0))
+        self.black_surface = pygame.Surface(WINDOW_SIZE)
+        self.black_surface.fill((0, 0, 0))
+        self.spiral = None
         self.wipe = None
         self._scene_cache = {}
 
@@ -195,13 +197,6 @@ class Game:
                 draw_disabled_button(self.screen, button, self.small_font)
             else:
                 button.draw(self.screen, self.small_font)
-            tier = self.run_state.building_by_name(button.action)["tier"]
-            label = DIFFICULTY_LABELS[tier]
-            y = button.rect.centery - self.small_font.size(label)[1] // 2
-            draw_outlined_text(
-                self.screen, self.small_font, label,
-                (button.rect.right + 10, y), color=DIFFICULTY_COLORS[tier],
-            )
         draw_outlined_text(
             self.screen, self.small_font,
             f"Seed: {self.run_state.seed}", (40, 500),
@@ -246,7 +241,12 @@ class Game:
             return
         if self.pending_battle is not None and now - self.map_arrive_timer > MAP_BATTLE_DELAY:
             name, self.pending_battle = self.pending_battle, None
-            self._start_wipe(lambda: self._start_battle_for(name))
+            self._start_spiral(
+                lambda: self._start_wipe(
+                    lambda: self._start_battle_for(name),
+                    from_surface=self.black_surface,
+                )
+            )
             return
         if now - self.anim_timer > 200:
             self.anim_timer = now
@@ -488,16 +488,59 @@ class Game:
         """Switch to the campus map, called at full black."""
         self.state = "map"
 
-    def _start_wipe(self, next_action):
+    def _start_wipe(self, next_action, from_surface=None):
         """Begin a rotating radial wipe, running next_action immediately."""
         self.wipe = {
-            "from": self.screen.copy(),
+            "from": from_surface if from_surface is not None else self.screen.copy(),
             "start": pygame.time.get_ticks(),
             "center": (WINDOW_SIZE[0] // 2, WINDOW_SIZE[1] // 2),
             "radius": 540,
             "start_angle": -90,
         }
         next_action()
+
+    def _start_spiral(self, next_action):
+        """Begin a black spiral fade, running next_action once fully black."""
+        if self.spiral is not None:
+            return
+        self.spiral = {
+            "start": pygame.time.get_ticks(),
+            "center": (WINDOW_SIZE[0] // 2, WINDOW_SIZE[1] // 2),
+            "radius": 540,
+            "start_angle": -90,
+            "next": next_action,
+        }
+
+    def _spiral_points(self, swept):
+        """Return the polygon points of the black spiral swept by degrees."""
+        cx, cy = self.spiral["center"]
+        radius = self.spiral["radius"]
+        start = self.spiral["start_angle"]
+        steps = max(1, int(swept / 6))
+        points = [(cx, cy)]
+        for i in range(steps + 1):
+            angle = math.radians(start + swept * i / steps)
+            points.append(
+                (int(cx + radius * math.cos(angle)),
+                 int(cy + radius * math.sin(angle)))
+            )
+        return points
+
+    def _draw_spiral(self):
+        """Swirl a growing black wedge over the screen, then run the callback."""
+        if self.spiral is None:
+            return
+        now = pygame.time.get_ticks()
+        progress = min(1.0, (now - self.spiral["start"]) / SPIRAL_TIME)
+        mask = pygame.Surface(WINDOW_SIZE, pygame.SRCALPHA)
+        points = self._spiral_points(progress * 360.0)
+        if len(points) >= 3:
+            pygame.draw.polygon(mask, (0, 0, 0, 255), points)
+        self.screen.blit(mask, (0, 0))
+        if progress >= 1.0:
+            action, self.spiral = self.spiral["next"], None
+            if action:
+                action()
 
     def _wedge_points(self, swept):
         """Return the polygon points of a pie wedge swept by degrees."""
@@ -533,7 +576,7 @@ class Game:
 
     def handle_click(self, pos):
         """Route a mouse click to the current screen's buttons."""
-        if self.fade_phase is not None or self.wipe is not None:
+        if self.fade_phase is not None or self.wipe is not None or self.spiral is not None:
             return
         if self.state == "menu":
             if self.seed_box.collidepoint(pos):
@@ -740,6 +783,7 @@ class Game:
             self.draw_end("Luna found Oxiel!")
         elif self.state == "defeat":
             self.draw_end("Luna was defeated.")
+        self._draw_spiral()
         self._draw_wipe()
         self._draw_fade()
         pygame.display.flip()
