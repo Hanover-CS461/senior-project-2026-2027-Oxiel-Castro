@@ -27,8 +27,8 @@ BOSS_MOVES = [
 ]
 
 FINAL_BOSS_MOVES = [
-    {"name": "Rend", "damage": (12, 18), "weight": 50},
-    {"name": "Devour", "damage": (20, 28), "weight": 25, "heavy": True},
+    {"name": "Rend", "damage": (10, 15), "weight": 50},
+    {"name": "Devour", "damage": (16, 22), "weight": 25, "heavy": True},
     {"name": "Hover", "weight": 10, "status": "prowl", "target": "self", "message": "its agility is up"},
     {"name": "Snarl", "weight": 15, "status": "intimidated", "target": "player", "message": "Luna is intimidated"},
 ]
@@ -84,7 +84,7 @@ class Run:
         return Enemy(f"{name} Boss", 90 + tier * 25, 4 + tier, BOSS_MOVES, sprite)
 
     def _final_boss(self):
-        return Enemy("Campus Guardian", 130, 6, FINAL_BOSS_MOVES, "rat")
+        return Enemy("Campus Guardian", 110, 5, FINAL_BOSS_MOVES, "rat")
 
     def start_battle(self, name):
         """Create the Battle for the current stage of a building."""

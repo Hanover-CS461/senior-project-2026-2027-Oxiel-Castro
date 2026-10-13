@@ -74,7 +74,7 @@ class Game:
         self.enemy_frames = {
             key: load_frames(
                 spec["path"], spec["frames"], scale=spec["scale"],
-                flip=(key == "fly"), normalize=True,
+                flip=(key in ("fly", "snake")), normalize=True,
             )
             for key, spec in ENEMY_SPRITES.items()
         }
@@ -395,12 +395,17 @@ class Game:
             draw_outlined_text(self.screen, self.small_font, line, (40, y))
             y += 36
 
-    def draw_end(self, message):
+    def draw_end(self, message, background=None):
         """Draw the victory or defeat screen with a back-to-menu button."""
-        self.screen.fill(COLOR_END_BG)
-        text = self.title_font.render(message, True, (255, 255, 255))
-        text_rect = text.get_rect(center=(400, 250))
-        self.screen.blit(text, text_rect)
+        if background is None:
+            self.screen.fill(COLOR_END_BG)
+        else:
+            self.screen.blit(background, (0, 0))
+        text_w = self.title_font.size(message)[0]
+        draw_outlined_text(
+            self.screen, self.title_font, message,
+            ((WINDOW_SIZE[0] - text_w) // 2, 240),
+        )
         self.menu_button.draw(self.screen, self.font)
 
     def draw_intro(self):
@@ -623,9 +628,12 @@ class Game:
                 return
             for button in self.map_buttons:
                 if button.rect.collidepoint(pos) and not self.run_state.is_cleared(button.action):
+                    target_y = button.rect.centery + 50
+                    if target_y > WINDOW_SIZE[1] - 30:
+                        target_y = button.rect.centery - 50
                     self.map_move = (
                         self.map_luna_pos.copy(),
-                        pygame.Vector2(button.rect.centerx, button.rect.centery + 50),
+                        pygame.Vector2(button.rect.centerx, target_y),
                         pygame.time.get_ticks(),
                         MAP_WALK_TIME,
                     )
@@ -798,7 +806,10 @@ class Game:
             self.draw_battle()
             self.update_battle()
         elif self.state == "victory":
-            self.draw_end("Luna found Oxiel!")
+            self.draw_end(
+                "Luna found Oxiel!",
+                self._scene_image("game/assets/images/w_end.2.png"),
+            )
         elif self.state == "defeat":
             self.draw_end("Luna was defeated.")
         self._draw_spiral()

@@ -43,7 +43,7 @@ STATUSES = {
     },
     "night_vision": {
         "name": "Night Vision",
-        "duration": 3,
+        "duration": 5,
         "modifiers": {},
         "caps": {},
         "triggers": ("round_end",),
@@ -154,12 +154,12 @@ class Battle:
         "night_vision": {
             "name": "Night Vision",
             "cost": 2,
-            "desc": "Reveals the enemy's chosen move for 3 rounds.",
+            "desc": "Reveals the enemy's chosen move for 5 rounds.",
         },
         "lick_wounds": {
             "name": "Lick Wounds",
             "cost": 3,
-            "desc": "Restores 20 HP.",
+            "desc": "Restores 30 HP.",
         },
         "yowl": {
             "name": "Yowl",
@@ -172,7 +172,7 @@ class Battle:
             "desc": "One-time save from death this battle.",
         },
     }
-    LICK_HEAL = 20
+    LICK_HEAL = 30
 
     def __init__(self, player_hp=100, player_hp_max=100, focus=16, agility=3, inventory=None, enemy=None):
         """Start a battle, optionally with a given player state and enemy."""
@@ -268,7 +268,7 @@ class Battle:
     def _instinct_yowl(self):
         """Intimidate the enemy so it takes 1.5x damage for two hits."""
         apply_status(self.enemy.statuses, "intimidated")
-        self._say("Luna yowls, intimidating the Fly!")
+        self._say(f"Luna yowls, intimidating the {self.enemy.name}!")
 
     def _instinct_nine_lives(self):
         """Grant Luna a one-time save from death this battle."""

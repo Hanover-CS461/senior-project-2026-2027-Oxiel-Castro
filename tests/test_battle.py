@@ -97,9 +97,9 @@ class StatusFrameworkTest(TestCase):
         statuses = {}
         apply_status(statuses, "night_vision")
         tick_statuses(statuses, "was_attacked")
-        self.assertEqual(statuses["night_vision"].duration, 3)
+        self.assertEqual(statuses["night_vision"].duration, STATUSES["night_vision"]["duration"])
         tick_statuses(statuses, "round_end")
-        self.assertEqual(statuses["night_vision"].duration, 2)
+        self.assertEqual(statuses["night_vision"].duration, STATUSES["night_vision"]["duration"] - 1)
 
     def test_tick_removes_expired(self):
         statuses = {}
@@ -253,20 +253,20 @@ class BattleFlowTest(TestCase):
         battle = Battle()
         battle.use_instinct("night_vision")
         self.assertIn("night_vision", battle.statuses)
-        self.assertEqual(battle.statuses["night_vision"].duration, 3)
+        self.assertEqual(battle.statuses["night_vision"].duration, STATUSES["night_vision"]["duration"])
 
     def test_night_vision_ticks_each_round(self):
         battle = Battle()
         battle.use_instinct("night_vision")
         battle.enemy.intent = BUZZ
         battle.enemy_turn()
-        self.assertEqual(battle.statuses["night_vision"].duration, 2)
+        self.assertEqual(battle.statuses["night_vision"].duration, STATUSES["night_vision"]["duration"] - 1)
 
     def test_lick_wounds_instinct_heals(self):
         battle = Battle()
         battle.player_hp = 50
         battle.use_instinct("lick_wounds")
-        self.assertEqual(battle.player_hp, 70)
+        self.assertEqual(battle.player_hp, 50 + Battle.LICK_HEAL)
         self.assertEqual(battle.focus, 16 - Battle.INSTINCTS["lick_wounds"]["cost"])
 
     def test_lick_wounds_capped_at_max_hp(self):
