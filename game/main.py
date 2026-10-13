@@ -350,14 +350,19 @@ class Game:
             draw_outlined_text(self.screen, self.small_font, "...", (40, y))
 
         if self.submenu == "instincts":
+            hovered = None
             for button in self.instinct_buttons:
                 disabled = self.enemy_phase or not self.battle.can_use_instinct(button.action)
                 if disabled:
                     draw_disabled_button(self.screen, button, self.small_font)
                 else:
                     button.draw(self.screen, self.small_font)
+                if button.rect.collidepoint(pygame.mouse.get_pos()):
+                    hovered = self.battle.INSTINCTS[button.action].get("desc")
             self.back_button.draw(self.screen, self.small_font)
+            self._draw_tooltip(hovered)
         elif self.submenu == "items":
+            hovered = None
             for button in self.item_buttons:
                 name = button.action
                 button.text = f"{ITEMS[name]['name']} x{self.battle.inventory[name]}"
@@ -366,7 +371,10 @@ class Game:
                     draw_disabled_button(self.screen, button, self.small_font)
                 else:
                     button.draw(self.screen, self.small_font)
+                if button.rect.collidepoint(pygame.mouse.get_pos()):
+                    hovered = ITEMS[name].get("desc")
             self.back_button.draw(self.screen, self.small_font)
+            self._draw_tooltip(hovered)
         else:
             for button in self.battle_buttons:
                 disabled = self.enemy_phase or (
@@ -376,6 +384,16 @@ class Game:
                     draw_disabled_button(self.screen, button, self.font)
                 else:
                     button.draw(self.screen, self.font)
+
+    def _draw_tooltip(self, desc):
+        """Draw a hover tooltip describing the submenu option under the cursor."""
+        if not desc:
+            return
+        lines = self._wrap_lines([desc], self.small_font, MESSAGE_MAX_WIDTH)
+        y = 300
+        for line in lines:
+            draw_outlined_text(self.screen, self.small_font, line, (40, y))
+            y += 36
 
     def draw_end(self, message):
         """Draw the victory or defeat screen with a back-to-menu button."""

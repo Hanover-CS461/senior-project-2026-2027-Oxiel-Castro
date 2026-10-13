@@ -105,9 +105,19 @@ ENEMY_MOVES = {
 }
 
 ITEMS = {
-    "wet_food": {"name": "Wet Food", "heal": 35},
-    "catnip": {"name": "Catnip", "focus": 12, "status": "riled"},
-    "milk": {"name": "Milk", "heal": 25, "status": "puffed"},
+    "wet_food": {"name": "Wet Food", "heal": 35, "desc": "Restores 35 HP."},
+    "catnip": {
+        "name": "Catnip",
+        "focus": 12,
+        "status": "riled",
+        "desc": "Restores 12 focus and makes Luna Riled: 1.5x damage for two hits.",
+    },
+    "milk": {
+        "name": "Milk",
+        "heal": 25,
+        "status": "puffed",
+        "desc": "Restores 25 HP and makes Luna Puffed: halves the next hit.",
+    },
 }
 
 
@@ -141,10 +151,26 @@ class Battle:
     DODGE_BASE = 0.05
     DODGE_PER_AGILITY = 0.01
     INSTINCTS = {
-        "night_vision": {"name": "Night Vision", "cost": 2},
-        "lick_wounds": {"name": "Lick Wounds", "cost": 3},
-        "yowl": {"name": "Yowl", "cost": 4},
-        "nine_lives": {"name": "Nine Lives", "cost": 5},
+        "night_vision": {
+            "name": "Night Vision",
+            "cost": 2,
+            "desc": "Reveals the enemy's chosen move for 3 rounds.",
+        },
+        "lick_wounds": {
+            "name": "Lick Wounds",
+            "cost": 3,
+            "desc": "Restores 20 HP.",
+        },
+        "yowl": {
+            "name": "Yowl",
+            "cost": 4,
+            "desc": "Intimidates the enemy so it takes 1.5x damage for two hits.",
+        },
+        "nine_lives": {
+            "name": "Nine Lives",
+            "cost": 5,
+            "desc": "One-time save from death this battle.",
+        },
     }
     LICK_HEAL = 20
 
