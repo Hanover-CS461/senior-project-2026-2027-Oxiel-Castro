@@ -171,10 +171,14 @@ class Game:
         self.wipe = None
         self._scene_cache = {}
         self._play_title_music()
-        self._preload_thread = threading.Thread(
-            target=self._preload_scenes, daemon=True
-        )
-        self._preload_thread.start()
+        self._preload_thread = None
+        try:
+            self._preload_thread = threading.Thread(
+                target=self._preload_scenes, daemon=True
+            )
+            self._preload_thread.start()
+        except RuntimeError:
+            self._preload_thread = None
 
     def _preload_scenes(self):
         """Load and scale every intro scene in the background at startup."""
