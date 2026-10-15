@@ -251,23 +251,22 @@ class Game:
             and self.run_state.stage.get(name, 0) >= 2
         )
 
-    def _play_title_music(self):
-        """Loop the title theme; only used on the title screen."""
+    def _play_music(self, path, loops=0):
+        """Stop the current track and play path, looping when loops is set."""
         self._battle_music_pending = False
         try:
-            pygame.mixer.music.load("game/assets/music/POL-chubby-cat.wav")
-            pygame.mixer.music.play(loops=-1)
+            pygame.mixer.music.load(path)
+            pygame.mixer.music.play(loops=loops)
         except pygame.error:
             pass
 
+    def _play_title_music(self):
+        """Loop the title theme; only used on the title screen."""
+        self._play_music("game/assets/music/POL-chubby-cat.wav", loops=-1)
+
     def _play_campus_music(self):
         """Loop the campus theme for the intro and map scenes."""
-        self._battle_music_pending = False
-        try:
-            pygame.mixer.music.load("game/assets/music/campus_m.mp3")
-            pygame.mixer.music.play(loops=-1)
-        except pygame.error:
-            pass
+        self._play_music("game/assets/music/campus_m.mp3", loops=-1)
 
     def _play_battle_music(self, boss=False):
         """Play the battle-start sting, then hand off to the battle theme."""
@@ -276,21 +275,24 @@ class Game:
             if boss
             else "game/assets/music/battle_m.mp3"
         )
+        self._play_music("game/assets/music/start_battle_m.mp3")
+        self._battle_music_pending = True
         try:
-            pygame.mixer.music.load("game/assets/music/start_battle_m.mp3")
-            pygame.mixer.music.play()
             pygame.mixer.music.queue(self._battle_loop_track)
-            self._battle_music_pending = True
         except pygame.error:
             pass
 
     def _play_battle_loop(self):
         """Loop the battle theme once the battle-start sting ends."""
-        try:
-            pygame.mixer.music.load(self._battle_loop_track)
-            pygame.mixer.music.play(loops=-1)
-        except pygame.error:
-            pass
+        self._play_music(self._battle_loop_track, loops=-1)
+
+    def _play_victory_music(self):
+        """Play the victory theme when the run is won."""
+        self._play_music("game/assets/music/Victory.mp3")
+
+    def _play_defeat_music(self):
+        """Play the game-over theme when the run is lost."""
+        self._play_music("game/assets/music/game_over.mp3")
 
     def update_map(self):
         """Advance Luna's walk to the chosen building on the campus map."""
@@ -778,8 +780,10 @@ class Game:
         self.run_state.end_battle(self.battle)
         if self.run_state.lost:
             self.state = "defeat"
+            self._play_defeat_music()
         elif self.run_state.won:
             self.state = "victory"
+            self._play_victory_music()
         else:
             self.state = "map"
             self._play_campus_music()
