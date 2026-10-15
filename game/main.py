@@ -2,6 +2,7 @@ import asyncio
 import math
 import re
 import sys
+import threading
 
 import pygame
 
@@ -34,8 +35,10 @@ from config import (
     COLOR_WHITE,
 )
 from sprites import load_frames
-from story import Story
+from story import SCENES, Story
 from ui import Button, draw_bar, draw_disabled_button, draw_outlined_text
+
+BATTLE_MUSIC_EVENT = pygame.USEREVENT + 1
 
 
 class Game:
@@ -46,8 +49,7 @@ class Game:
         pygame.init()
         try:
             pygame.mixer.init()
-            pygame.mixer.music.load("game/assets/music/POL-chubby-cat.wav")
-            pygame.mixer.music.play(loops=-1)
+            pygame.mixer.music.set_endevent(BATTLE_MUSIC_EVENT)
         except pygame.error:
             pass
         self.screen = pygame.display.set_mode(WINDOW_SIZE)
@@ -57,6 +59,8 @@ class Game:
         self.small_font = pygame.font.Font(FONT, 32)
         self.title_font = pygame.font.Font(FONT, 60)
         self.state = "menu"
+        self._battle_music_pending = False
+        self._battle_loop_track = "game/assets/music/battle_m.mp3"
 
         self.background = pygame.image.load("game/assets/images/background.png").convert()
         self.background = pygame.transform.scale(self.background, WINDOW_SIZE)
@@ -166,6 +170,16 @@ class Game:
         self.spiral = None
         self.wipe = None
         self._scene_cache = {}
+        self._play_title_music()
+        self._preload_thread = threading.Thread(
+            target=self._preload_scenes, daemon=True
+        )
+        self._preload_thread.start()
+
+    def _preload_scenes(self):
+        """Load and scale every intro scene in the background at startup."""
+        for scene in SCENES:
+            self._scene_image(scene["image"])
 
     def draw_menu(self):
         """Draw the title screen with background, title, and menu buttons."""
@@ -225,6 +239,55 @@ class Game:
         self._reset_battle()
         self.state = "battle"
 
+    def _is_final_boss(self, name):
+        """Return True when the upcoming fight at name is the Campus Guardian."""
+        return (
+            name is not None
+            and name == self.run_state.human_building
+            and self.run_state.stage.get(name, 0) >= 2
+        )
+
+    def _play_title_music(self):
+        """Loop the title theme; only used on the title screen."""
+        self._battle_music_pending = False
+        try:
+            pygame.mixer.music.load("game/assets/music/POL-chubby-cat.wav")
+            pygame.mixer.music.play(loops=-1)
+        except pygame.error:
+            pass
+
+    def _play_campus_music(self):
+        """Loop the campus theme for the intro and map scenes."""
+        self._battle_music_pending = False
+        try:
+            pygame.mixer.music.load("game/assets/music/campus_m.mp3")
+            pygame.mixer.music.play(loops=-1)
+        except pygame.error:
+            pass
+
+    def _play_battle_music(self, boss=False):
+        """Play the battle-start sting, then hand off to the battle theme."""
+        self._battle_loop_track = (
+            "game/assets/music/guardian_battle_m.WAV"
+            if boss
+            else "game/assets/music/battle_m.mp3"
+        )
+        try:
+            pygame.mixer.music.load("game/assets/music/start_battle_m.mp3")
+            pygame.mixer.music.play()
+            pygame.mixer.music.queue(self._battle_loop_track)
+            self._battle_music_pending = True
+        except pygame.error:
+            pass
+
+    def _play_battle_loop(self):
+        """Loop the battle theme once the battle-start sting ends."""
+        try:
+            pygame.mixer.music.load(self._battle_loop_track)
+            pygame.mixer.music.play(loops=-1)
+        except pygame.error:
+            pass
+
     def update_map(self):
         """Advance Luna's walk to the chosen building on the campus map."""
         now = pygame.time.get_ticks()
@@ -238,6 +301,7 @@ class Game:
             if progress >= 1.0:
                 self.map_move = None
                 self.map_arrive_timer = now
+                self._play_battle_music(boss=self._is_final_boss(self.pending_battle))
             return
         if self.pending_battle is not None and now - self.map_arrive_timer > MAP_BATTLE_DELAY:
             name, self.pending_battle = self.pending_battle, None
@@ -478,11 +542,18 @@ class Game:
             self.fade_surface.set_alpha(alpha)
             self.screen.blit(self.fade_surface, (0, 0))
 
+    def _preload_scene(self):
+        """Load the current intro scene image while the screen is black."""
+        scene = self.story.scene() if self.story else None
+        if scene:
+            self._scene_image(scene["image"])
+
     def _begin_intro(self):
         """Create a fresh intro and switch to it, called at full black."""
         self.story = Story()
         self.intro_start = pygame.time.get_ticks()
         self.state = "intro"
+        self._preload_scene()
 
     def _intro_advance(self):
         """Snap the current scene to its last line, or move to the next."""
@@ -499,6 +570,7 @@ class Game:
             if not self.story.advance():
                 self.state = "map"
             else:
+                self._preload_scene()
                 self.intro_start = pygame.time.get_ticks()
 
         self._start_fade(at_black)
@@ -615,6 +687,7 @@ class Game:
                         self.map_move = None
                         self.map_arrive_timer = 0
                         self.pending_battle = None
+                        self._play_campus_music()
                         self._start_fade(self._begin_intro)
                     elif button.action == "quit":
                         self.running = False
@@ -682,6 +755,7 @@ class Game:
         elif self.state in ("victory", "defeat"):
             if self.menu_button.rect.collidepoint(pos):
                 self.state = "menu"
+                self._play_title_music()
 
     def _reset_battle(self):
         """Clear per-battle animation and message state for a fresh fight."""
@@ -704,6 +778,7 @@ class Game:
             self.state = "victory"
         else:
             self.state = "map"
+            self._play_campus_music()
 
     def _message_sentences(self, msg):
         """Split a battle message into its individual narration sentences."""
@@ -780,6 +855,9 @@ class Game:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
+            if event.type == BATTLE_MUSIC_EVENT and self._battle_music_pending:
+                self._battle_music_pending = False
+                self._play_battle_loop()
             if event.type == pygame.KEYDOWN and self.seed_focus:
                 if event.key == pygame.K_BACKSPACE:
                     self.seed_text = self.seed_text[:-1]
