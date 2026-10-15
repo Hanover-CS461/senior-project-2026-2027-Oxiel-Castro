@@ -19,6 +19,7 @@ from config import (
     ENEMY_SPRITES,
     FADE_TIME,
     FONT,
+    FOUND_NOTICE_TIME,
     LUNA_ATTACK_X,
     LUNA_FRAMES,
     LUNA_X,
@@ -148,6 +149,7 @@ class Game:
         self.map_walk_index = 0
         self.map_walk_timer = 0
         self.pending_battle = None
+        self.found_notice_start = None
         self.run_state = None
         self.battle = None
         self.enemy_phase = False
@@ -213,8 +215,23 @@ class Game:
         for button in self.map_buttons:
             if self.run_state.is_cleared(button.action):
                 draw_disabled_button(self.screen, button, self.small_font)
+            elif (
+                self.run_state.found_human
+                and button.action == self.run_state.human_building
+            ):
+                button.draw(self.screen, self.small_font, text_color=COLOR_TITLE)
             else:
                 button.draw(self.screen, self.small_font)
+        if (
+            self.found_notice_start is not None
+            and pygame.time.get_ticks() - self.found_notice_start < FOUND_NOTICE_TIME
+        ):
+            notice = "You found Oxiel - the Campus Guardian stands in the way."
+            width = self.small_font.size(notice)[0]
+            draw_outlined_text(
+                self.screen, self.small_font, notice,
+                ((WINDOW_SIZE[0] - width) // 2, 105), color=COLOR_TITLE,
+            )
         draw_outlined_text(
             self.screen, self.small_font,
             f"Seed: {self.run_state.seed}", (40, 500),
@@ -693,6 +710,7 @@ class Game:
                         self.map_move = None
                         self.map_arrive_timer = 0
                         self.pending_battle = None
+                        self.found_notice_start = None
                         self._play_campus_music()
                         self._start_fade(self._begin_intro)
                     elif button.action == "quit":
@@ -786,6 +804,8 @@ class Game:
             self._play_victory_music()
         else:
             self.state = "map"
+            if self.run_state.found_human and self.found_notice_start is None:
+                self.found_notice_start = pygame.time.get_ticks()
             self._play_campus_music()
 
     def _message_sentences(self, msg):

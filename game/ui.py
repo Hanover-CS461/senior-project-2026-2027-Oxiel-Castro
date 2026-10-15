@@ -21,13 +21,13 @@ class Button:
         self.color = COLOR_BUTTON
         self.hover_color = COLOR_BUTTON_HOVER
 
-    def draw(self, screen, font):
+    def draw(self, screen, font, text_color=COLOR_WHITE):
         """Draw the button with a hover highlight and centered text."""
         mouse_pos = pygame.mouse.get_pos()
         color = self.hover_color if self.rect.collidepoint(mouse_pos) else self.color
         pygame.draw.rect(screen, color, self.rect, border_radius=5)
         pygame.draw.rect(screen, COLOR_BLACK, self.rect, width=3, border_radius=5)
-        text_surface = font.render(self.text, True, COLOR_WHITE)
+        text_surface = font.render(self.text, True, text_color)
         text_rect = text_surface.get_rect(center=self.rect.center)
         screen.blit(text_surface, text_rect)
 
