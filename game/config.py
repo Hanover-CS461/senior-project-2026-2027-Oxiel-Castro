@@ -7,6 +7,8 @@ MESSAGE_MAX_WIDTH = 720
 
 LUNA_X = 60
 LUNA_ATTACK_X = 470
+ENEMY_X = 620
+ENEMY_ATTACK_X = 260
 WALK_TIME = 400
 MAP_WALK_TIME = 1400
 MAP_BATTLE_DELAY = 400
@@ -22,12 +24,29 @@ COLOR_BUTTON_HOVER = (65, 105, 225)
 COLOR_DISABLED = (120, 120, 120)
 COLOR_DISABLED_TEXT = (180, 180, 180)
 COLOR_TITLE = (174, 27, 51)
+COLOR_FOUND = (60, 200, 60)
 COLOR_HP_BAR = (200, 40, 40)
 COLOR_FOCUS_BAR = (40, 120, 255)
 COLOR_BATTLE_BG = (120, 200, 120)
 COLOR_END_BG = (20, 20, 20)
+COLOR_HINT = (200, 200, 200)
+COLOR_HEAVY = (255, 200, 0)
 
+# Image asset paths, grouped so every path lives in one place.
+BACKGROUND_IMAGE = "game/assets/images/background.png"
+CAMPUS_IMAGE = "game/assets/images/campus.png"
+LUNA_SHEET = "game/assets/images/Luna2.png"
+VICTORY_IMAGE = "game/assets/images/w_end.2.png"
 BATTLE_BG = "game/assets/images/battle_bg.png"
+
+# Music track paths, grouped so every track lives in one place.
+MUSIC_TITLE = "game/assets/music/POL-chubby-cat.wav"
+MUSIC_CAMPUS = "game/assets/music/campus_m.mp3"
+MUSIC_BATTLE = "game/assets/music/battle_m.mp3"
+MUSIC_BOSS = "game/assets/music/guardian_battle_m.WAV"
+MUSIC_BATTLE_START = "game/assets/music/start_battle_m.mp3"
+MUSIC_VICTORY = "game/assets/music/Victory.mp3"
+MUSIC_DEFEAT = "game/assets/music/game_over.mp3"
 
 # Player balance, shared by the battle and run logic.
 PLAYER_MAX_HP = 100

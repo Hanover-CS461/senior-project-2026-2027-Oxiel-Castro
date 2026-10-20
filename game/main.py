@@ -1,47 +1,48 @@
 import asyncio
-import math
-import re
-import sys
 import threading
 
 import pygame
 
+from assets import Assets
 from battle import Battle, ITEMS
-from run import BUILDINGS, Run
 from config import (
-    ATTACK_FRAMES,
-    BATTLE_BG,
     BATTLE_BACKGROUNDS,
-    COLOR_BATTLE_BG,
+    COLOR_BLACK,
+    COLOR_BUTTON,
     COLOR_END_BG,
     COLOR_FOCUS_BAR,
+    COLOR_FOUND,
+    COLOR_HEAVY,
+    COLOR_HINT,
     COLOR_HP_BAR,
     COLOR_TITLE,
+    COLOR_WHITE,
+    ENEMY_ATTACK_X,
     ENEMY_DELAY,
-    ENEMY_SPRITES,
-    FADE_TIME,
+    ENEMY_X,
     FONT,
     FOUND_NOTICE_TIME,
     LUNA_ATTACK_X,
-    LUNA_FRAMES,
     LUNA_X,
     MAP_BATTLE_DELAY,
     MAP_WALK_TIME,
     MESSAGE_MAX_WIDTH,
-    MESSAGE_PAGE_LINES,
-    READ_DELAY,
-    SPIRAL_TIME,
-    WALK_FRAMES,
+    VICTORY_IMAGE,
     WALK_TIME,
     WINDOW_SIZE,
-    WIPE_TIME,
-    COLOR_WHITE,
 )
-from sprites import load_frames, load_image
+from messages import MessageLog
+from music import Music
+from run import BUILDINGS, Run
 from story import SCENES, Story
-from ui import Button, draw_bar, draw_disabled_button, draw_outlined_text
-
-BATTLE_MUSIC_EVENT = pygame.USEREVENT + 1
+from transitions import Transitions
+from ui import (
+    Button,
+    draw_bar,
+    draw_disabled_button,
+    draw_outlined_text,
+    wrap_lines,
+)
 
 
 class Game:
@@ -50,11 +51,7 @@ class Game:
     def __init__(self):
         """Set up pygame, load assets, and create the UI buttons."""
         pygame.init()
-        try:
-            pygame.mixer.init()
-            pygame.mixer.music.set_endevent(BATTLE_MUSIC_EVENT)
-        except pygame.error:
-            pass
+        self.music = Music()
         self.screen = pygame.display.set_mode(WINDOW_SIZE)
         pygame.display.set_caption("Luna - a Hanover College Mystery")
         self.clock = pygame.time.Clock()
@@ -62,41 +59,10 @@ class Game:
         self.small_font = pygame.font.Font(FONT, 32)
         self.title_font = pygame.font.Font(FONT, 60)
         self.state = "menu"
-        self._battle_music_pending = False
-        self._battle_loop_track = "game/assets/music/battle_m.mp3"
-
-        self.background = load_image("game/assets/images/background.png", WINDOW_SIZE)
-        self.battle_bg = load_image(BATTLE_BG, WINDOW_SIZE)
-        self.battle_backgrounds = {
-            path: load_image(path, WINDOW_SIZE)
-            for spec in BATTLE_BACKGROUNDS.values()
-            for path in spec.values()
-        }
-        self.battle_bg_current = self.battle_bg
-        self.campus_bg = load_image("game/assets/images/campus.png", WINDOW_SIZE)
-
-        self.luna_frames = load_frames(
-            "game/assets/images/Luna2.png", LUNA_FRAMES, size=(132, 96)
-        )
-        self.walk_frames = load_frames(
-            "game/assets/images/Luna2.png", WALK_FRAMES, scale=5
-        )
-        self.enemy_frames = {
-            key: load_frames(
-                spec["path"], spec["frames"], scale=spec["scale"],
-                flip=(key in ("fly", "snake")), normalize=True,
-            )
-            for key, spec in ENEMY_SPRITES.items()
-        }
-        self.luna_attack_frames = load_frames(
-            "game/assets/images/Luna2.png", ATTACK_FRAMES, scale=5
-        )
-        self.map_idle_frames = load_frames(
-            "game/assets/images/Luna2.png", LUNA_FRAMES, scale=2
-        )
-        self.map_walk_frames = load_frames(
-            "game/assets/images/Luna2.png", WALK_FRAMES, scale=2
-        )
+        self.assets = Assets()
+        self.battle_bg_current = self.assets.battle_bg
+        self.transitions = Transitions()
+        self.messages = MessageLog(self.small_font)
 
         self.anim_index = 0
         self.anim_timer = 0
@@ -108,6 +74,11 @@ class Game:
         self.walk_index = 0
         self.walk_timer = 0
         self.luna_x = LUNA_X
+        self.enemy_x = ENEMY_X
+        self.enemy_attack_state = None
+        self.enemy_attack_timer = 0
+        self.luna_acted_first = False
+        self.luna_attack_pending = False
 
         self.buttons = [
             Button(300, 250, 200, 60, "Start", "start"),
@@ -147,7 +118,6 @@ class Game:
             Button(260, 380, 120, 40, BUILDINGS[2]["name"], BUILDINGS[2]["name"]),
             Button(490, 550, 120, 40, BUILDINGS[3]["name"], BUILDINGS[3]["name"]),
         ]
-        self.building_button = None
         self.map_luna_pos = pygame.Vector2(160, 60)
         self.map_move = None
         self.map_arrive_timer = 0
@@ -159,24 +129,11 @@ class Game:
         self.battle = None
         self.enemy_phase = False
         self.enemy_timer = 0
-        self._message_pages = []
-        self._message_page = 0
-        self._message_timer = 0
-        self._last_message = None
 
         self.story = None
         self.intro_start = 0
         self.skip_button = Button(660, 545, 120, 40, "Skip", "skip")
-        self.fade_phase = None
-        self.fade_start = 0
-        self.fade_next = None
-        self.fade_surface = pygame.Surface(WINDOW_SIZE)
-        self.fade_surface.fill((0, 0, 0))
-        self.black_surface = pygame.Surface(WINDOW_SIZE)
-        self.black_surface.fill((0, 0, 0))
-        self.spiral = None
-        self.wipe = None
-        self._play_title_music()
+        self.music.play_title()
         self._preload_thread = None
         try:
             self._preload_thread = threading.Thread(
@@ -210,13 +167,13 @@ class Game:
     def _preload_scenes(self):
         """Load and scale every intro scene in the background at startup."""
         for scene in SCENES:
-            self._scene_image(scene["image"])
+            self.assets.scene_image(scene["image"])
 
     def draw_menu(self):
         """Draw the title screen with background, title, and menu buttons."""
-        self.screen.blit(self.background, (0, 0))
+        self.screen.blit(self.assets.background, (0, 0))
         title = "Luna - a Hanover College Mystery"
-        title_surface = self.title_font.render(title, True, (0, 0, 0))
+        title_surface = self.title_font.render(title, True, COLOR_BLACK)
         title_rect = title_surface.get_rect(center=(self.screen.get_width() // 2, 90))
         title_surface2 = self.title_font.render(title, True, COLOR_TITLE)
         title_rect2 = title_surface2.get_rect(
@@ -227,15 +184,15 @@ class Game:
         for button in self.buttons:
             button.draw(self.screen, self.font)
         draw_outlined_text(self.screen, self.small_font, "Seed (optional):", (20, 500))
-        pygame.draw.rect(self.screen, (30, 144, 255), self.seed_box, border_radius=5)
-        pygame.draw.rect(self.screen, (0, 0, 0), self.seed_box, width=3, border_radius=5)
+        pygame.draw.rect(self.screen, COLOR_BUTTON, self.seed_box, border_radius=5)
+        pygame.draw.rect(self.screen, COLOR_BLACK, self.seed_box, width=3, border_radius=5)
         label = self.seed_text if self.seed_text else "random"
-        seed_surface = self.small_font.render(label, True, (255, 255, 255))
+        seed_surface = self.small_font.render(label, True, COLOR_WHITE)
         self.screen.blit(seed_surface, (self.seed_box.x + 8, self.seed_box.y + 4))
 
     def draw_map(self):
         """Draw the campus map with building choices and run status."""
-        self.screen.blit(self.campus_bg, (0, 0))
+        self.screen.blit(self.assets.campus_bg, (0, 0))
         draw_outlined_text(self.screen, self.title_font, "Choose a building", (430, 50))
         for button in self.map_buttons:
             if self.run_state.is_cleared(button.action):
@@ -255,7 +212,7 @@ class Game:
             width = self.small_font.size(notice)[0]
             draw_outlined_text(
                 self.screen, self.small_font, notice,
-                ((WINDOW_SIZE[0] - width) // 2, 105), color=COLOR_TITLE,
+                ((WINDOW_SIZE[0] - width) // 2, 105), color=COLOR_FOUND,
             )
         draw_outlined_text(
             self.screen, self.small_font,
@@ -273,21 +230,21 @@ class Game:
                 (40, 570), color=COLOR_TITLE,
             )
         if self.map_move is not None:
-            frame = self.map_walk_frames[self.map_walk_index]
+            frame = self.assets.map_walk_frames[self.map_walk_index]
         else:
-            frame = self.map_idle_frames[self.anim_index]
+            frame = self.assets.map_idle_frames[self.anim_index]
         self.screen.blit(frame, (self.map_luna_pos.x - frame.get_width() // 2,
                                  self.map_luna_pos.y - frame.get_height() // 2))
 
     def _battle_background_for(self, name):
         """Return the scaled background for the upcoming fight at a building."""
         if name is None or self._is_final_boss(name):
-            return self.battle_bg
+            return self.assets.battle_bg
         spec = BATTLE_BACKGROUNDS.get(name)
         if not spec:
-            return self.battle_bg
+            return self.assets.battle_bg
         key = "boss" if self.run_state.stage.get(name, 0) >= 1 else "guard"
-        return self.battle_backgrounds.get(spec.get(key), self.battle_bg)
+        return self.assets.battle_backgrounds.get(spec.get(key), self.assets.battle_bg)
 
     def _start_battle_for(self, name):
         """Start the battle for a building once Luna reaches it."""
@@ -304,49 +261,6 @@ class Game:
             and self.run_state.stage.get(name, 0) >= 2
         )
 
-    def _play_music(self, path, loops=0):
-        """Stop the current track and play path, looping when loops is set."""
-        self._battle_music_pending = False
-        try:
-            pygame.mixer.music.load(path)
-            pygame.mixer.music.play(loops=loops)
-        except pygame.error:
-            pass
-
-    def _play_title_music(self):
-        """Loop the title theme; only used on the title screen."""
-        self._play_music("game/assets/music/POL-chubby-cat.wav", loops=-1)
-
-    def _play_campus_music(self):
-        """Loop the campus theme for the intro and map scenes."""
-        self._play_music("game/assets/music/campus_m.mp3", loops=-1)
-
-    def _play_battle_music(self, boss=False):
-        """Play the battle-start sting, then hand off to the battle theme."""
-        self._battle_loop_track = (
-            "game/assets/music/guardian_battle_m.WAV"
-            if boss
-            else "game/assets/music/battle_m.mp3"
-        )
-        self._play_music("game/assets/music/start_battle_m.mp3")
-        self._battle_music_pending = True
-        try:
-            pygame.mixer.music.queue(self._battle_loop_track)
-        except pygame.error:
-            pass
-
-    def _play_battle_loop(self):
-        """Loop the battle theme once the battle-start sting ends."""
-        self._play_music(self._battle_loop_track, loops=-1)
-
-    def _play_victory_music(self):
-        """Play the victory theme when the run is won."""
-        self._play_music("game/assets/music/Victory.mp3")
-
-    def _play_defeat_music(self):
-        """Play the game-over theme when the run is lost."""
-        self._play_music("game/assets/music/game_over.mp3")
-
     def update_map(self):
         """Advance Luna's walk to the chosen building on the campus map."""
         now = pygame.time.get_ticks()
@@ -355,25 +269,26 @@ class Game:
             progress = min(1.0, (now - start_time) / duration)
             if now - self.map_walk_timer > 90:
                 self.map_walk_timer = now
-                self.map_walk_index = (self.map_walk_index + 1) % len(self.map_walk_frames)
+                self.map_walk_index = (self.map_walk_index + 1) % len(self.assets.map_walk_frames)
             self.map_luna_pos = start.lerp(end, progress)
             if progress >= 1.0:
                 self.map_move = None
                 self.map_arrive_timer = now
-                self._play_battle_music(boss=self._is_final_boss(self.pending_battle))
+                self.music.play_battle(boss=self._is_final_boss(self.pending_battle))
             return
         if self.pending_battle is not None and now - self.map_arrive_timer > MAP_BATTLE_DELAY:
             name, self.pending_battle = self.pending_battle, None
-            self._start_spiral(
-                lambda: self._start_wipe(
+            self.transitions.start_spiral(
+                lambda: self.transitions.start_wipe(
                     lambda: self._start_battle_for(name),
-                    from_surface=self.black_surface,
+                    self.screen,
+                    from_surface=self.transitions.black_surface,
                 )
             )
             return
         if now - self.anim_timer > 200:
             self.anim_timer = now
-            self.anim_index = (self.anim_index + 1) % len(self.map_idle_frames)
+            self.anim_index = (self.anim_index + 1) % len(self.assets.map_idle_frames)
 
     def _update_animations(self, now):
         """Advance the cat and enemy animation frames based on elapsed time."""
@@ -382,7 +297,7 @@ class Game:
             self.luna_x = LUNA_X + (LUNA_ATTACK_X - LUNA_X) * progress
             if now - self.walk_timer > 100:
                 self.walk_timer = now
-                self.walk_index = (self.walk_index + 1) % len(self.walk_frames)
+                self.walk_index = (self.walk_index + 1) % len(self.assets.walk_frames)
             if progress >= 1.0:
                 self.attack_state = "attacking"
                 self.attack_index = 0
@@ -391,7 +306,7 @@ class Game:
             if now - self.attack_timer > 80:
                 self.attack_timer = now
                 self.attack_index += 1
-                if self.attack_index >= len(self.luna_attack_frames):
+                if self.attack_index >= len(self.assets.luna_attack_frames):
                     self.attack_state = "walk_back"
                     self.attack_timer = now
         elif self.attack_state == "walk_back":
@@ -399,17 +314,36 @@ class Game:
             self.luna_x = LUNA_ATTACK_X + (LUNA_X - LUNA_ATTACK_X) * progress
             if now - self.walk_timer > 100:
                 self.walk_timer = now
-                self.walk_index = (self.walk_index + 1) % len(self.walk_frames)
+                self.walk_index = (self.walk_index + 1) % len(self.assets.walk_frames)
             if progress >= 1.0:
                 self.attack_state = None
                 self.luna_x = LUNA_X
         elif now - self.anim_timer > 150:
             self.anim_timer = now
-            self.anim_index = (self.anim_index + 1) % len(self.luna_frames)
+            self.anim_index = (self.anim_index + 1) % len(self.assets.luna_frames)
+        if self.enemy_attack_state == "walk_to":
+            progress = min(1.0, (now - self.enemy_attack_timer) / WALK_TIME)
+            self.enemy_x = ENEMY_X + (ENEMY_ATTACK_X - ENEMY_X) * progress
+            if progress >= 1.0:
+                self.enemy_attack_state = "attacking"
+                self.enemy_attack_timer = now
+        elif self.enemy_attack_state == "attacking":
+            if now - self.enemy_attack_timer > 200:
+                self.enemy_attack_state = "walk_back"
+                self.enemy_attack_timer = now
+        elif self.enemy_attack_state == "walk_back":
+            progress = min(1.0, (now - self.enemy_attack_timer) / WALK_TIME)
+            self.enemy_x = ENEMY_ATTACK_X + (ENEMY_X - ENEMY_ATTACK_X) * progress
+            if progress >= 1.0:
+                self.enemy_attack_state = None
+                self.enemy_x = ENEMY_X
+                if self.luna_attack_pending:
+                    self.luna_attack_pending = False
+                    self._start_luna_attack(now)
         if now - self.enemy_anim_timer > 70:
             self.enemy_anim_timer = now
             self.enemy_anim_index = (self.enemy_anim_index + 1) % len(
-                self.enemy_frames[self.battle.enemy.sprite]
+                self.assets.enemy_frames[self.battle.enemy.sprite]
             )
 
     def draw_battle(self):
@@ -417,15 +351,15 @@ class Game:
         self.screen.blit(self.battle_bg_current, (0, 0))
         self._update_animations(pygame.time.get_ticks())
         if self.attack_state == "attacking":
-            luna = self.luna_attack_frames[self.attack_index]
+            luna = self.assets.luna_attack_frames[self.attack_index]
         elif self.attack_state in ("walk_to", "walk_back"):
-            luna = self.walk_frames[self.walk_index]
+            luna = self.assets.walk_frames[self.walk_index]
         else:
-            luna = self.luna_frames[self.anim_index]
+            luna = self.assets.luna_frames[self.anim_index]
         self.screen.blit(luna, (self.luna_x, 340))
-        enemy_frames = self.enemy_frames[self.battle.enemy.sprite]
+        enemy_frames = self.assets.enemy_frames[self.battle.enemy.sprite]
         enemy = enemy_frames[self.enemy_anim_index % len(enemy_frames)]
-        self.screen.blit(enemy, (620 - enemy.get_width() // 2, 360 - enemy.get_height() // 2))
+        self.screen.blit(enemy, (self.enemy_x - enemy.get_width() // 2, 360 - enemy.get_height() // 2))
 
         draw_outlined_text(
             self.screen, self.small_font,
@@ -453,23 +387,19 @@ class Game:
             text = f"Intent: {intent['name']}"
             if "damage" in intent:
                 text += f" ({intent['damage'][0]}-{intent['damage'][1]})"
-            color = COLOR_WHITE if not intent.get("heavy") else (255, 200, 0)
+            color = COLOR_WHITE if not intent.get("heavy") else COLOR_HEAVY
             draw_outlined_text(self.screen, self.small_font, text, (460, 90), color=color)
         draw_bar(
             self.screen, self.small_font, 40, 110, 300, 20,
             self.battle.focus, Battle.MAX_FOCUS, COLOR_FOCUS_BAR,
         )
 
-        lines = (
-            self._message_pages[self._message_page]
-            if self._message_pages
-            else [self.battle.message]
-        )
+        lines = self.messages.lines(self.battle.message)
         y = 130
         for line in lines:
             draw_outlined_text(self.screen, self.small_font, line, (40, y))
             y += 36
-        if len(self._message_pages) > self._message_page + 1:
+        if self.messages.has_more:
             draw_outlined_text(self.screen, self.small_font, "...", (40, y))
 
         menu = self._battle_menu()
@@ -531,10 +461,11 @@ class Game:
         if button.action == "attack":
             self.battle.attack()
             if self.battle.luna_attacked:
-                self.attack_state = "walk_to"
-                self.attack_index = 0
-                self.attack_timer = pygame.time.get_ticks()
+                self.luna_acted_first = True
+                self._start_luna_attack(pygame.time.get_ticks())
                 self.battle.luna_attacked = False
+            else:
+                self.luna_acted_first = False
         elif button.action == "rest":
             self.battle.rest()
         elif button.action == "defend":
@@ -544,11 +475,30 @@ class Game:
         elif button.action == "instincts":
             self.submenu = "instincts"
 
+    def _start_luna_attack(self, now):
+        """Begin Luna's lunge animation."""
+        self.attack_state = "walk_to"
+        self.attack_index = 0
+        self.attack_timer = now
+
+    def _start_enemy_attack(self, now):
+        """Begin the enemy's lunge animation."""
+        self.enemy_attack_state = "walk_to"
+        self.enemy_attack_timer = now
+
+    def _luna_busy(self):
+        """Return True while Luna's attack animation is playing."""
+        return self.attack_state is not None
+
+    def _enemy_busy(self):
+        """Return True while the enemy's attack animation is playing."""
+        return self.enemy_attack_state is not None
+
     def _draw_tooltip(self, desc):
         """Draw a hover tooltip describing the submenu option under the cursor."""
         if not desc:
             return
-        lines = self._wrap_lines([desc], self.small_font, MESSAGE_MAX_WIDTH)
+        lines = wrap_lines([desc], self.small_font, MESSAGE_MAX_WIDTH)
         y = 300
         for line in lines:
             draw_outlined_text(self.screen, self.small_font, line, (40, y))
@@ -572,11 +522,11 @@ class Game:
         scene = self.story.scene() if self.story else None
         if scene is None:
             return
-        self.screen.blit(self._scene_image(scene["image"]), (0, 0))
+        self.screen.blit(self.assets.scene_image(scene["image"]), (0, 0))
         elapsed = pygame.time.get_ticks() - self.intro_start
         line = self.story.visible_line(elapsed)
         if line:
-            wrapped = self._wrap_lines([line], self.small_font, MESSAGE_MAX_WIDTH)
+            wrapped = wrap_lines([line], self.small_font, MESSAGE_MAX_WIDTH)
             y = 430
             for part in wrapped:
                 width = self.small_font.size(part)[0]
@@ -590,52 +540,15 @@ class Game:
             width = self.small_font.size(hint)[0]
             draw_outlined_text(
                 self.screen, self.small_font, hint,
-                ((WINDOW_SIZE[0] - width) // 2, 545), color=(200, 200, 200),
+                ((WINDOW_SIZE[0] - width) // 2, 545), color=COLOR_HINT,
             )
         self.skip_button.draw(self.screen, self.small_font)
-
-    def _scene_image(self, path):
-        """Load and cache a scene image, falling back to the menu background."""
-        try:
-            return load_image(path, WINDOW_SIZE)
-        except (pygame.error, FileNotFoundError, TypeError):
-            return self.background
-
-    def _start_fade(self, next_action):
-        """Begin a through-black fade, running next_action at full black."""
-        if self.fade_phase is not None:
-            return
-        self.fade_phase = "out"
-        self.fade_start = pygame.time.get_ticks()
-        self.fade_next = next_action
-
-    def _draw_fade(self):
-        """Overlay a black surface whose alpha animates the fade."""
-        if self.fade_phase is None:
-            return
-        now = pygame.time.get_ticks()
-        progress = min(1.0, (now - self.fade_start) / FADE_TIME)
-        if self.fade_phase == "out":
-            alpha = int(255 * progress)
-            if progress >= 1.0:
-                action, self.fade_next = self.fade_next, None
-                if action:
-                    action()
-                self.fade_phase = "in"
-                self.fade_start = now
-        else:
-            alpha = int(255 * (1.0 - progress))
-            if progress >= 1.0:
-                self.fade_phase = None
-        if alpha > 0:
-            self.fade_surface.set_alpha(alpha)
-            self.screen.blit(self.fade_surface, (0, 0))
 
     def _preload_scene(self):
         """Load the current intro scene image while the screen is black."""
         scene = self.story.scene() if self.story else None
         if scene:
-            self._scene_image(scene["image"])
+            self.assets.scene_image(scene["image"])
 
     def _begin_intro(self):
         """Create a fresh intro and switch to it, called at full black."""
@@ -662,105 +575,19 @@ class Game:
                 self._preload_scene()
                 self.intro_start = pygame.time.get_ticks()
 
-        self._start_fade(at_black)
+        self.transitions.start_fade(at_black)
 
     def _skip_intro(self):
         """Fade straight to the map."""
-        self._start_fade(self._enter_map)
+        self.transitions.start_fade(self._enter_map)
 
     def _enter_map(self):
         """Switch to the campus map, called at full black."""
         self.state = "map"
 
-    def _start_wipe(self, next_action, from_surface=None):
-        """Begin a rotating radial wipe, running next_action immediately."""
-        self.wipe = {
-            "from": from_surface if from_surface is not None else self.screen.copy(),
-            "start": pygame.time.get_ticks(),
-            "center": (WINDOW_SIZE[0] // 2, WINDOW_SIZE[1] // 2),
-            "radius": 540,
-            "start_angle": -90,
-        }
-        next_action()
-
-    def _start_spiral(self, next_action):
-        """Begin a black spiral fade, running next_action once fully black."""
-        if self.spiral is not None:
-            return
-        self.spiral = {
-            "start": pygame.time.get_ticks(),
-            "center": (WINDOW_SIZE[0] // 2, WINDOW_SIZE[1] // 2),
-            "radius": 540,
-            "start_angle": -90,
-            "next": next_action,
-        }
-
-    def _spiral_points(self, swept):
-        """Return the polygon points of the black spiral swept by degrees."""
-        cx, cy = self.spiral["center"]
-        radius = self.spiral["radius"]
-        start = self.spiral["start_angle"]
-        steps = max(1, int(swept / 6))
-        points = [(cx, cy)]
-        for i in range(steps + 1):
-            angle = math.radians(start + swept * i / steps)
-            points.append(
-                (int(cx + radius * math.cos(angle)),
-                 int(cy + radius * math.sin(angle)))
-            )
-        return points
-
-    def _draw_spiral(self):
-        """Swirl a growing black wedge over the screen, then run the callback."""
-        if self.spiral is None:
-            return
-        now = pygame.time.get_ticks()
-        progress = min(1.0, (now - self.spiral["start"]) / SPIRAL_TIME)
-        mask = pygame.Surface(WINDOW_SIZE, pygame.SRCALPHA)
-        points = self._spiral_points(progress * 360.0)
-        if len(points) >= 3:
-            pygame.draw.polygon(mask, (0, 0, 0, 255), points)
-        self.screen.blit(mask, (0, 0))
-        if progress >= 1.0:
-            action, self.spiral = self.spiral["next"], None
-            if action:
-                action()
-
-    def _wedge_points(self, swept):
-        """Return the polygon points of a pie wedge swept by degrees."""
-        cx, cy = self.wipe["center"]
-        radius = self.wipe["radius"]
-        start = self.wipe["start_angle"]
-        steps = max(1, int(swept / 6))
-        points = [(cx, cy)]
-        for i in range(steps + 1):
-            angle = math.radians(start + swept * i / steps)
-            points.append(
-                (int(cx + radius * math.cos(angle)),
-                 int(cy + radius * math.sin(angle)))
-            )
-        return points
-
-    def _draw_wipe(self):
-        """Reveal the current screen through a growing, rotating wedge."""
-        if self.wipe is None:
-            return
-        now = pygame.time.get_ticks()
-        progress = min(1.0, (now - self.wipe["start"]) / WIPE_TIME)
-        mask = pygame.Surface(WINDOW_SIZE, pygame.SRCALPHA)
-        mask.fill((255, 255, 255, 255))
-        points = self._wedge_points(progress * 360.0)
-        if len(points) >= 3:
-            pygame.draw.polygon(mask, (255, 255, 255, 0), points)
-        layer = self.wipe["from"].convert_alpha()
-        layer.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-        self.screen.blit(layer, (0, 0))
-        if progress >= 1.0:
-            self.wipe = None
-
     def handle_click(self, pos):
         """Route a mouse click to the current screen's handler."""
-        if self.fade_phase is not None or self.wipe is not None or self.spiral is not None:
+        if self.transitions.busy:
             return
         handler = self._click_handlers.get(self.state)
         if handler:
@@ -782,8 +609,8 @@ class Game:
                     self.map_arrive_timer = 0
                     self.pending_battle = None
                     self.found_notice_start = None
-                    self._play_campus_music()
-                    self._start_fade(self._begin_intro)
+                    self.music.play_campus()
+                    self.transitions.start_fade(self._begin_intro)
                 elif button.action == "quit":
                     self.running = False
 
@@ -835,7 +662,7 @@ class Game:
         """Return to the title screen from victory or defeat."""
         if self.menu_button.rect.collidepoint(pos):
             self.state = "menu"
-            self._play_title_music()
+            self.music.play_title()
 
     def _reset_battle(self):
         """Clear per-battle animation and message state for a fresh fight."""
@@ -844,104 +671,69 @@ class Game:
         self.submenu = None
         self.attack_state = None
         self.attack_index = 0
-        self._message_pages = []
-        self._message_page = 0
-        self._message_timer = 0
-        self._last_message = None
+        self.enemy_attack_state = None
+        self.enemy_attack_timer = 0
+        self.enemy_x = ENEMY_X
+        self.luna_acted_first = False
+        self.luna_attack_pending = False
+        self.messages.reset()
 
     def _finish_battle(self):
         """Record the battle result in the run and pick the next screen."""
         self.run_state.end_battle(self.battle)
         if self.run_state.lost:
             self.state = "defeat"
-            self._play_defeat_music()
+            self.music.play_defeat()
         elif self.run_state.won:
             self.state = "victory"
-            self._play_victory_music()
+            self.music.play_victory()
         else:
             self.state = "map"
             if self.run_state.found_human and self.found_notice_start is None:
                 self.found_notice_start = pygame.time.get_ticks()
-            self._play_campus_music()
-
-    def _message_sentences(self, msg):
-        """Split a battle message into its individual narration sentences."""
-        return [s for s in re.split(r"(?<=[.!])\s+", msg) if s]
-
-    def _wrap_lines(self, sentences, font, max_width):
-        """Word-wrap sentences into lines that fit within max_width."""
-        lines = []
-        for sentence in sentences:
-            current = ""
-            for word in sentence.split():
-                trial = f"{current} {word}".strip()
-                if font.size(trial)[0] <= max_width:
-                    current = trial
-                else:
-                    lines.append(current)
-                    current = word
-            if current:
-                lines.append(current)
-        return lines
-
-    def _sync_message(self, now):
-        """Rebuild the paged message log whenever the battle message changes."""
-        msg = self.battle.message
-        if msg == self._last_message:
-            return
-        self._last_message = msg
-        sentences = self._message_sentences(msg)
-        lines = self._wrap_lines(sentences, self.small_font, MESSAGE_MAX_WIDTH)
-        self._message_pages = [
-            lines[i : i + MESSAGE_PAGE_LINES]
-            for i in range(0, len(lines), MESSAGE_PAGE_LINES)
-        ]
-        self._message_page = 0
-        self._message_timer = now
-
-    def _advance_message(self, now):
-        """Advance to the next page of the message log after a pause."""
-        if (
-            self._message_page < len(self._message_pages) - 1
-            and now - self._message_timer > READ_DELAY
-        ):
-            self._message_page += 1
-            self._message_timer = now
-
-    def _message_done(self):
-        """Return True once the final message page is being shown."""
-        return not self._message_pages or self._message_page >= len(self._message_pages) - 1
+            self.music.play_campus()
 
     def update_battle(self):
         """Run the enemy turn, page through messages, then let the player act."""
         now = pygame.time.get_ticks()
-        self._sync_message(now)
+        self.messages.sync(self.battle.message, now)
         if not self.enemy_phase:
             return
         if self.battle.phase == "enemy":
-            if now - self.enemy_timer > ENEMY_DELAY:
-                self.battle.enemy_turn()
-                self.enemy_timer = now
-                if self.battle.luna_attacked:
-                    self.attack_state = "walk_to"
-                    self.attack_index = 0
-                    self.attack_timer = pygame.time.get_ticks()
-                    self.battle.luna_attacked = False
-                if self.battle.over:
-                    self._finish_battle()
-        elif self._message_done() and now - self._message_timer > READ_DELAY:
+            if now - self.enemy_timer > ENEMY_DELAY and not self._luna_busy():
+                self._run_enemy_turn(now)
+        elif (
+            self.messages.read_out(now)
+            and not self._luna_busy()
+            and not self._enemy_busy()
+            and not self.luna_attack_pending
+        ):
             self.enemy_phase = False
         else:
-            self._advance_message(now)
+            self.messages.advance(now)
+
+    def _run_enemy_turn(self, now):
+        """Resolve the enemy's action, then animate the two attacks in order."""
+        move = self.battle.enemy.intent
+        self.battle.enemy_turn()
+        self.enemy_timer = now
+        if move and "damage" in move:
+            self._start_enemy_attack(now)
+        if self.battle.luna_attacked and not self.luna_acted_first:
+            self.battle.luna_attacked = False
+            if self._enemy_busy():
+                self.luna_attack_pending = True
+            else:
+                self._start_luna_attack(now)
+        if self.battle.over:
+            self._finish_battle()
 
     def frame(self):
         """Process input and draw one frame of the game."""
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
-            if event.type == BATTLE_MUSIC_EVENT and self._battle_music_pending:
-                self._battle_music_pending = False
-                self._play_battle_loop()
+            self.music.handle_event(event)
             if event.type == pygame.KEYDOWN and self.seed_focus:
                 if event.key == pygame.K_BACKSPACE:
                     self.seed_text = self.seed_text[:-1]
@@ -950,7 +742,7 @@ class Game:
                 elif event.unicode.isdigit():
                     self.seed_text += event.unicode
             if event.type == pygame.KEYDOWN and self.state == "intro":
-                if self.fade_phase is None:
+                if not self.transitions.fade_active:
                     if event.key in (pygame.K_SPACE, pygame.K_RETURN, pygame.K_KP_ENTER):
                         self._intro_advance()
                     elif event.key == pygame.K_ESCAPE:
@@ -961,16 +753,14 @@ class Game:
         update = self._update_screens.get(self.state)
         if update:
             update()
-        self._draw_spiral()
-        self._draw_wipe()
-        self._draw_fade()
+        self.transitions.draw(self.screen)
         pygame.display.flip()
 
     def _draw_victory(self):
         """Draw the victory screen over the ending artwork."""
         self.draw_end(
             "Luna found Oxiel!",
-            self._scene_image("game/assets/images/w_end.2.png"),
+            self.assets.scene_image(VICTORY_IMAGE),
         )
 
     def _draw_defeat(self):

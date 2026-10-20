@@ -41,6 +41,23 @@ def draw_disabled_button(screen, button, font):
     screen.blit(text_surface, text_rect)
 
 
+def wrap_lines(sentences, font, max_width):
+    """Word-wrap sentences into lines that fit within max_width."""
+    lines = []
+    for sentence in sentences:
+        current = ""
+        for word in sentence.split():
+            trial = f"{current} {word}".strip()
+            if font.size(trial)[0] <= max_width:
+                current = trial
+            else:
+                lines.append(current)
+                current = word
+        if current:
+            lines.append(current)
+    return lines
+
+
 def draw_bar(screen, font, x, y, width, height, value, max_value, color, label=None):
     """Draw a progress bar showing value out of max_value."""
     pygame.draw.rect(screen, COLOR_BLACK, (x, y, width, height))
