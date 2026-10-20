@@ -1,5 +1,20 @@
 import pygame
 
+_image_cache = {}
+
+
+def load_image(path, size=None):
+    """Load an image, optionally scaled, caching it by path and size."""
+    key = (path, size)
+    cached = _image_cache.get(key)
+    if cached is not None:
+        return cached
+    image = pygame.image.load(path).convert()
+    if size is not None:
+        image = pygame.transform.scale(image, size)
+    _image_cache[key] = image
+    return image
+
 
 class SpriteSheet:
     """Loads a sprite sheet and crops frames from it."""

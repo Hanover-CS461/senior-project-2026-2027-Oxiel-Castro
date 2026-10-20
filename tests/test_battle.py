@@ -228,7 +228,7 @@ class BattleFlowTest(TestCase):
         battle = Battle()
         battle.player_hp = 80
         battle.rest()
-        self.assertEqual(battle.player_hp, 90)
+        self.assertEqual(battle.player_hp, 85)
         self.assertEqual(battle.phase, "enemy")
 
     def test_rest_heal_capped_at_max(self):
@@ -340,16 +340,16 @@ class ItemsTest(TestCase):
 
     def test_starting_inventory(self):
         battle = Battle()
-        self.assertEqual(battle.inventory["wet_food"], 4)
-        self.assertEqual(battle.inventory["catnip"], 3)
-        self.assertEqual(battle.inventory["milk"], 2)
+        self.assertEqual(battle.inventory["wet_food"], 3)
+        self.assertEqual(battle.inventory["catnip"], 2)
+        self.assertEqual(battle.inventory["milk"], 1)
 
     def test_wet_food_heals(self):
         battle = Battle()
         battle.player_hp = 50
         battle.use_item("wet_food")
         self.assertEqual(battle.player_hp, 85)
-        self.assertEqual(battle.inventory["wet_food"], 3)
+        self.assertEqual(battle.inventory["wet_food"], 2)
         self.assertEqual(battle.phase, "enemy")
 
     def test_wet_food_capped_at_max_hp(self):

@@ -1,7 +1,7 @@
 FONT = "game/assets/Fonts/PixelPurl.ttf"
 WINDOW_SIZE = (800, 600)
 ENEMY_DELAY = 1400
-READ_DELAY = 600
+READ_DELAY = 1200
 MESSAGE_PAGE_LINES = 5
 MESSAGE_MAX_WIDTH = 720
 
@@ -26,6 +26,25 @@ COLOR_HP_BAR = (200, 40, 40)
 COLOR_FOCUS_BAR = (40, 120, 255)
 COLOR_BATTLE_BG = (120, 200, 120)
 COLOR_END_BG = (20, 20, 20)
+
+BATTLE_BG = "game/assets/images/battle_bg.png"
+
+# Player balance, shared by the battle and run logic.
+PLAYER_MAX_HP = 100
+PLAYER_START_HP = 100
+PLAYER_MAX_FOCUS = 30
+PLAYER_START_FOCUS = 16
+PLAYER_START_AGILITY = 3
+START_INVENTORY = {"wet_food": 3, "catnip": 2, "milk": 1}
+
+# Per-building battle backgrounds, keyed by building name. "guard" is the
+# first fight, "boss" the second. Any building not listed uses BATTLE_BG.
+BATTLE_BACKGROUNDS = {
+    "Lynn Hall": {
+        "guard": "game/assets/images/soda_machine.png",
+        "boss": "game/assets/images/skiadas_class.png",
+    },
+}
 
 # Each frame is a crop on the sheet: (x, y, width, height) in pixels.
 LUNA_FRAMES = [

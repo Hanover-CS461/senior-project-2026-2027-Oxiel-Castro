@@ -1,5 +1,14 @@
 import random
 
+from config import (
+    PLAYER_MAX_FOCUS,
+    PLAYER_MAX_HP,
+    PLAYER_START_AGILITY,
+    PLAYER_START_FOCUS,
+    PLAYER_START_HP,
+    START_INVENTORY,
+)
+
 
 class Status:
     """A temporary modifier on a combatant with duration, magnitude, and triggers."""
@@ -95,12 +104,31 @@ def tick_statuses(statuses, trigger):
             del statuses[key]
 
 
+def damage_move(name, low, high, weight, heavy=False):
+    """Build a damage move; heavy moves are flagged so the UI can highlight them."""
+    move = {"name": name, "damage": (low, high), "weight": weight}
+    if heavy:
+        move["heavy"] = True
+    return move
+
+
+def status_move(name, status, target, message, weight):
+    """Build a status move that buffs the user or debuffs the player."""
+    return {
+        "name": name,
+        "weight": weight,
+        "status": status,
+        "target": target,
+        "message": message,
+    }
+
+
 ENEMY_MOVES = {
     "fly": [
-        {"name": "Buzz", "damage": (5, 8), "weight": 55},
-        {"name": "Sting", "damage": (11, 15), "weight": 25, "heavy": True},
-        {"name": "Hover", "weight": 10, "status": "prowl", "target": "self", "message": "its agility is up"},
-        {"name": "Irritate", "weight": 10, "status": "intimidated", "target": "player", "message": "Luna is intimidated"},
+        damage_move("Buzz", 5, 8, 55),
+        damage_move("Sting", 11, 15, 25, heavy=True),
+        status_move("Hover", "prowl", "self", "its agility is up", 10),
+        status_move("Irritate", "intimidated", "player", "Luna is intimidated", 10),
     ],
 }
 
@@ -146,8 +174,8 @@ class Battle:
     ATTACK_COST = 3
     ATTACK_DAMAGE = (13, 16)
     REST_GAIN = 12
-    REST_HEAL = 10
-    MAX_FOCUS = 30
+    REST_HEAL = 5
+    MAX_FOCUS = PLAYER_MAX_FOCUS
     DODGE_BASE = 0.05
     DODGE_PER_AGILITY = 0.01
     INSTINCTS = {
@@ -174,7 +202,15 @@ class Battle:
     }
     LICK_HEAL = 30
 
-    def __init__(self, player_hp=100, player_hp_max=100, focus=16, agility=3, inventory=None, enemy=None):
+    def __init__(
+        self,
+        player_hp=PLAYER_START_HP,
+        player_hp_max=PLAYER_MAX_HP,
+        focus=PLAYER_START_FOCUS,
+        agility=PLAYER_START_AGILITY,
+        inventory=None,
+        enemy=None,
+    ):
         """Start a battle, optionally with a given player state and enemy."""
         self.player_hp = player_hp
         self.player_hp_max = player_hp_max
@@ -190,7 +226,7 @@ class Battle:
         self.luna_attacked = False
         self.nine_lives = False
         self.statuses = {}
-        self.inventory = dict(inventory) if inventory is not None else {"wet_food": 4, "catnip": 3, "milk": 2}
+        self.inventory = dict(inventory) if inventory is not None else dict(START_INVENTORY)
 
     @staticmethod
     def dodge_chance(agility):

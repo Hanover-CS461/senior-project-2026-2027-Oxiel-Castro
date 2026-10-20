@@ -1,6 +1,14 @@
 import random
 
-from battle import Battle, Enemy, ITEMS
+from battle import Battle, Enemy, ITEMS, damage_move, status_move
+from config import (
+    PLAYER_MAX_FOCUS,
+    PLAYER_MAX_HP,
+    PLAYER_START_AGILITY,
+    PLAYER_START_FOCUS,
+    PLAYER_START_HP,
+    START_INVENTORY,
+)
 
 
 DIFFICULTY_TIER = 1
@@ -13,37 +21,38 @@ BUILDINGS = [
 ]
 
 GUARD_MOVES = [
-    {"name": "Scratch", "damage": (5, 9), "weight": 55},
-    {"name": "Lunge", "damage": (10, 14), "weight": 25, "heavy": True},
-    {"name": "Hover", "weight": 10, "status": "prowl", "target": "self", "message": "its agility is up"},
-    {"name": "Snarl", "weight": 10, "status": "intimidated", "target": "player", "message": "Luna is intimidated"},
+    damage_move("Scratch", 5, 9, 55),
+    damage_move("Lunge", 10, 14, 25, heavy=True),
+    status_move("Hover", "prowl", "self", "its agility is up", 10),
+    status_move("Snarl", "intimidated", "player", "Luna is intimidated", 10),
 ]
 
 BOSS_MOVES = [
-    {"name": "Claw", "damage": (8, 12), "weight": 50},
-    {"name": "Maul", "damage": (15, 22), "weight": 25, "heavy": True},
-    {"name": "Hover", "weight": 10, "status": "prowl", "target": "self", "message": "its agility is up"},
-    {"name": "Snarl", "weight": 15, "status": "intimidated", "target": "player", "message": "Luna is intimidated"},
+    damage_move("Claw", 8, 12, 50),
+    damage_move("Maul", 15, 22, 25, heavy=True),
+    status_move("Hover", "prowl", "self", "its agility is up", 10),
+    status_move("Snarl", "intimidated", "player", "Luna is intimidated", 15),
 ]
 
 FINAL_BOSS_MOVES = [
-    {"name": "Rend", "damage": (10, 15), "weight": 50},
-    {"name": "Devour", "damage": (16, 22), "weight": 25, "heavy": True},
-    {"name": "Hover", "weight": 10, "status": "prowl", "target": "self", "message": "its agility is up"},
-    {"name": "Snarl", "weight": 15, "status": "intimidated", "target": "player", "message": "Luna is intimidated"},
+    damage_move("Rend", 10, 15, 50),
+    damage_move("Devour", 16, 22, 25, heavy=True),
+    status_move("Hover", "prowl", "self", "its agility is up", 10),
+    status_move("Snarl", "intimidated", "player", "Luna is intimidated", 15),
 ]
 
 
 class Run:
     """Pure run logic: seeded human location, buildings, and persistent state."""
 
-    MAX_HP = 100
-    MAX_FOCUS = 30
-    START_FOCUS = 16
-    START_HP = 100
-    START_AGILITY = 3
-    START_INVENTORY = {"wet_food": 4, "catnip": 3, "milk": 2}
-    HEAL_BETWEEN = 20
+    MAX_HP = PLAYER_MAX_HP
+    MAX_FOCUS = PLAYER_MAX_FOCUS
+    START_FOCUS = PLAYER_START_FOCUS
+    START_HP = PLAYER_START_HP
+    START_AGILITY = PLAYER_START_AGILITY
+    START_INVENTORY = dict(START_INVENTORY)
+    HEAL_BETWEEN = 10
+    BETWEEN_FOCUS = 20
 
     def __init__(self, seed=None):
         """Start a run, seeding the human's building for reproducibility."""
@@ -122,6 +131,6 @@ class Run:
         elif name == self.human_building and self.stage[name] == 3:
             self.won = True
         self.player_hp = min(self.player_hp_max, self.player_hp + self.HEAL_BETWEEN)
-        self.focus = self.MAX_FOCUS
+        self.focus = max(self.focus, self.BETWEEN_FOCUS)
         self.last_reward = self.rng.choice(list(ITEMS))
         self.inventory[self.last_reward] = self.inventory.get(self.last_reward, 0) + 1

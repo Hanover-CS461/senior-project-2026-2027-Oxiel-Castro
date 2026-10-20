@@ -44,7 +44,7 @@ class RunTest(TestCase):
         battle.player_hp = 40
         run.end_battle(battle)
         self.assertEqual(run.player_hp, 40 + Run.HEAL_BETWEEN)
-        self.assertEqual(run.focus, Run.MAX_FOCUS)
+        self.assertEqual(run.focus, Run.BETWEEN_FOCUS)
         self.assertEqual(run.stage[name], 1)
         self.assertFalse(run.lost)
 

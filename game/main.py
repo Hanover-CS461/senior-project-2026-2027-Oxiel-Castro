@@ -10,6 +10,8 @@ from battle import Battle, ITEMS
 from run import BUILDINGS, Run
 from config import (
     ATTACK_FRAMES,
+    BATTLE_BG,
+    BATTLE_BACKGROUNDS,
     COLOR_BATTLE_BG,
     COLOR_END_BG,
     COLOR_FOCUS_BAR,
@@ -35,7 +37,7 @@ from config import (
     WIPE_TIME,
     COLOR_WHITE,
 )
-from sprites import load_frames
+from sprites import load_frames, load_image
 from story import SCENES, Story
 from ui import Button, draw_bar, draw_disabled_button, draw_outlined_text
 
@@ -63,12 +65,15 @@ class Game:
         self._battle_music_pending = False
         self._battle_loop_track = "game/assets/music/battle_m.mp3"
 
-        self.background = pygame.image.load("game/assets/images/background.png").convert()
-        self.background = pygame.transform.scale(self.background, WINDOW_SIZE)
-        self.battle_bg = pygame.image.load("game/assets/images/battle_bg.png").convert()
-        self.battle_bg = pygame.transform.scale(self.battle_bg, WINDOW_SIZE)
-        self.campus_bg = pygame.image.load("game/assets/images/campus.png").convert()
-        self.campus_bg = pygame.transform.scale(self.campus_bg, WINDOW_SIZE)
+        self.background = load_image("game/assets/images/background.png", WINDOW_SIZE)
+        self.battle_bg = load_image(BATTLE_BG, WINDOW_SIZE)
+        self.battle_backgrounds = {
+            path: load_image(path, WINDOW_SIZE)
+            for spec in BATTLE_BACKGROUNDS.values()
+            for path in spec.values()
+        }
+        self.battle_bg_current = self.battle_bg
+        self.campus_bg = load_image("game/assets/images/campus.png", WINDOW_SIZE)
 
         self.luna_frames = load_frames(
             "game/assets/images/Luna2.png", LUNA_FRAMES, size=(132, 96)
@@ -171,7 +176,6 @@ class Game:
         self.black_surface.fill((0, 0, 0))
         self.spiral = None
         self.wipe = None
-        self._scene_cache = {}
         self._play_title_music()
         self._preload_thread = None
         try:
@@ -181,6 +185,27 @@ class Game:
             self._preload_thread.start()
         except RuntimeError:
             self._preload_thread = None
+
+        self._click_handlers = {
+            "menu": self._click_menu,
+            "intro": self._click_intro,
+            "map": self._click_map,
+            "battle": self._click_battle,
+            "victory": self._click_end,
+            "defeat": self._click_end,
+        }
+        self._draw_screens = {
+            "menu": self.draw_menu,
+            "intro": self.draw_intro,
+            "map": self.draw_map,
+            "battle": self.draw_battle,
+            "victory": self._draw_victory,
+            "defeat": self._draw_defeat,
+        }
+        self._update_screens = {
+            "map": self.update_map,
+            "battle": self.update_battle,
+        }
 
     def _preload_scenes(self):
         """Load and scale every intro scene in the background at startup."""
@@ -254,9 +279,20 @@ class Game:
         self.screen.blit(frame, (self.map_luna_pos.x - frame.get_width() // 2,
                                  self.map_luna_pos.y - frame.get_height() // 2))
 
+    def _battle_background_for(self, name):
+        """Return the scaled background for the upcoming fight at a building."""
+        if name is None or self._is_final_boss(name):
+            return self.battle_bg
+        spec = BATTLE_BACKGROUNDS.get(name)
+        if not spec:
+            return self.battle_bg
+        key = "boss" if self.run_state.stage.get(name, 0) >= 1 else "guard"
+        return self.battle_backgrounds.get(spec.get(key), self.battle_bg)
+
     def _start_battle_for(self, name):
         """Start the battle for a building once Luna reaches it."""
         self.battle = self.run_state.start_battle(name)
+        self.battle_bg_current = self._battle_background_for(name)
         self._reset_battle()
         self.state = "battle"
 
@@ -378,7 +414,7 @@ class Game:
 
     def draw_battle(self):
         """Draw the battle screen: sprites, bars, message, and buttons."""
-        self.screen.blit(self.battle_bg, (0, 0))
+        self.screen.blit(self.battle_bg_current, (0, 0))
         self._update_animations(pygame.time.get_ticks())
         if self.attack_state == "attacking":
             luna = self.luna_attack_frames[self.attack_index]
@@ -436,41 +472,77 @@ class Game:
         if len(self._message_pages) > self._message_page + 1:
             draw_outlined_text(self.screen, self.small_font, "...", (40, y))
 
+        menu = self._battle_menu()
+        hovered = None
+        for button in menu["buttons"]:
+            if menu["refresh"]:
+                menu["refresh"](button)
+            if menu["disabled"](button):
+                draw_disabled_button(self.screen, button, menu["font"])
+            else:
+                button.draw(self.screen, menu["font"])
+            if button.rect.collidepoint(pygame.mouse.get_pos()):
+                hovered = menu["tooltip"](button)
+        if menu["back"]:
+            self.back_button.draw(self.screen, self.small_font)
+        self._draw_tooltip(hovered)
+
+    def _battle_menu(self):
+        """Return the active battle menu: its buttons and draw/click behavior."""
         if self.submenu == "instincts":
-            hovered = None
-            for button in self.instinct_buttons:
-                disabled = self.enemy_phase or not self.battle.can_use_instinct(button.action)
-                if disabled:
-                    draw_disabled_button(self.screen, button, self.small_font)
-                else:
-                    button.draw(self.screen, self.small_font)
-                if button.rect.collidepoint(pygame.mouse.get_pos()):
-                    hovered = self.battle.INSTINCTS[button.action].get("desc")
-            self.back_button.draw(self.screen, self.small_font)
-            self._draw_tooltip(hovered)
-        elif self.submenu == "items":
-            hovered = None
-            for button in self.item_buttons:
-                name = button.action
-                button.text = f"{ITEMS[name]['name']} x{self.battle.inventory[name]}"
-                disabled = self.enemy_phase or not self.battle.can_use_item(name)
-                if disabled:
-                    draw_disabled_button(self.screen, button, self.small_font)
-                else:
-                    button.draw(self.screen, self.small_font)
-                if button.rect.collidepoint(pygame.mouse.get_pos()):
-                    hovered = ITEMS[name].get("desc")
-            self.back_button.draw(self.screen, self.small_font)
-            self._draw_tooltip(hovered)
-        else:
-            for button in self.battle_buttons:
-                disabled = self.enemy_phase or (
-                    button.action == "attack" and not self.battle.can_attack()
-                )
-                if disabled:
-                    draw_disabled_button(self.screen, button, self.font)
-                else:
-                    button.draw(self.screen, self.font)
+            return {
+                "buttons": self.instinct_buttons,
+                "font": self.small_font,
+                "back": True,
+                "disabled": lambda b: self.enemy_phase
+                or not self.battle.can_use_instinct(b.action),
+                "tooltip": lambda b: self.battle.INSTINCTS[b.action].get("desc"),
+                "refresh": None,
+                "activate": lambda b: self.battle.use_instinct(b.action),
+            }
+        if self.submenu == "items":
+            return {
+                "buttons": self.item_buttons,
+                "font": self.small_font,
+                "back": True,
+                "disabled": lambda b: self.enemy_phase
+                or not self.battle.can_use_item(b.action),
+                "tooltip": lambda b: ITEMS[b.action].get("desc"),
+                "refresh": lambda b: setattr(
+                    b,
+                    "text",
+                    f"{ITEMS[b.action]['name']} x{self.battle.inventory[b.action]}",
+                ),
+                "activate": lambda b: self.battle.use_item(b.action),
+            }
+        return {
+            "buttons": self.battle_buttons,
+            "font": self.font,
+            "back": False,
+            "disabled": lambda b: self.enemy_phase
+            or (b.action == "attack" and not self.battle.can_attack()),
+            "tooltip": lambda b: None,
+            "refresh": None,
+            "activate": self._activate_battle_button,
+        }
+
+    def _activate_battle_button(self, button):
+        """Run the main battle menu's action, animating Luna's attack."""
+        if button.action == "attack":
+            self.battle.attack()
+            if self.battle.luna_attacked:
+                self.attack_state = "walk_to"
+                self.attack_index = 0
+                self.attack_timer = pygame.time.get_ticks()
+                self.battle.luna_attacked = False
+        elif button.action == "rest":
+            self.battle.rest()
+        elif button.action == "defend":
+            self.battle.defend()
+        elif button.action == "items":
+            self.submenu = "items"
+        elif button.action == "instincts":
+            self.submenu = "instincts"
 
     def _draw_tooltip(self, desc):
         """Draw a hover tooltip describing the submenu option under the cursor."""
@@ -524,16 +596,10 @@ class Game:
 
     def _scene_image(self, path):
         """Load and cache a scene image, falling back to the menu background."""
-        if path in self._scene_cache:
-            return self._scene_cache[path]
-        image = self.background
         try:
-            loaded = pygame.image.load(path).convert()
-            image = pygame.transform.scale(loaded, WINDOW_SIZE)
+            return load_image(path, WINDOW_SIZE)
         except (pygame.error, FileNotFoundError, TypeError):
-            image = self.background
-        self._scene_cache[path] = image
-        return image
+            return self.background
 
     def _start_fade(self, next_action):
         """Begin a through-black fade, running next_action at full black."""
@@ -693,93 +759,83 @@ class Game:
             self.wipe = None
 
     def handle_click(self, pos):
-        """Route a mouse click to the current screen's buttons."""
+        """Route a mouse click to the current screen's handler."""
         if self.fade_phase is not None or self.wipe is not None or self.spiral is not None:
             return
-        if self.state == "menu":
-            if self.seed_box.collidepoint(pos):
-                self.seed_focus = True
-            else:
-                self.seed_focus = False
-            for button in self.buttons:
-                if button.rect.collidepoint(pos):
-                    if button.action == "start":
-                        seed = int(self.seed_text) if self.seed_text.isdigit() else None
-                        self.run_state = Run(seed=seed)
-                        self.map_luna_pos = pygame.Vector2(400, 70)
-                        self.map_move = None
-                        self.map_arrive_timer = 0
-                        self.pending_battle = None
-                        self.found_notice_start = None
-                        self._play_campus_music()
-                        self._start_fade(self._begin_intro)
-                    elif button.action == "quit":
-                        self.running = False
-        elif self.state == "intro":
-            if self.skip_button.rect.collidepoint(pos):
-                self._skip_intro()
-            else:
-                self._intro_advance()
-        elif self.state == "map":
-            if self.map_move is not None:
-                return
-            for button in self.map_buttons:
-                if button.rect.collidepoint(pos) and not self.run_state.is_cleared(button.action):
-                    target_y = button.rect.centery + 50
-                    if target_y > WINDOW_SIZE[1] - 30:
-                        target_y = button.rect.centery - 50
-                    self.map_move = (
-                        self.map_luna_pos.copy(),
-                        pygame.Vector2(button.rect.centerx, target_y),
-                        pygame.time.get_ticks(),
-                        MAP_WALK_TIME,
-                    )
-                    self.pending_battle = button.action
-                    self.map_walk_index = 0
-                    self.map_walk_timer = 0
-        elif self.state == "battle":
-            if self.battle.phase == "player" and not self.enemy_phase:
-                if self.submenu == "instincts":
-                    if self.back_button.rect.collidepoint(pos):
-                        self.submenu = None
-                    for button in self.instinct_buttons:
-                        if button.rect.collidepoint(pos):
-                            self.battle.use_instinct(button.action)
-                            self.submenu = None
-                elif self.submenu == "items":
-                    if self.back_button.rect.collidepoint(pos):
-                        self.submenu = None
-                    for button in self.item_buttons:
-                        if button.rect.collidepoint(pos):
-                            self.battle.use_item(button.action)
-                            self.submenu = None
-                else:
-                    for button in self.battle_buttons:
-                        if button.rect.collidepoint(pos):
-                            if button.action == "attack":
-                                self.battle.attack()
-                                if self.battle.luna_attacked:
-                                    self.attack_state = "walk_to"
-                                    self.attack_index = 0
-                                    self.attack_timer = pygame.time.get_ticks()
-                                    self.battle.luna_attacked = False
-                            elif button.action == "rest":
-                                self.battle.rest()
-                            elif button.action == "defend":
-                                self.battle.defend()
-                            elif button.action == "items":
-                                self.submenu = "items"
-                            elif button.action == "instincts":
-                                self.submenu = "instincts"
-                if self.battle.over:
-                    self._finish_battle()
-                elif self.battle.phase == "enemy":
-                    self.enemy_phase = True
-                    self.enemy_timer = pygame.time.get_ticks()
-        elif self.state in ("victory", "defeat"):
-            if self.menu_button.rect.collidepoint(pos):
-                self.state = "menu"
-                self._play_title_music()
+        handler = self._click_handlers.get(self.state)
+        if handler:
+            handler(pos)
+
+    def _click_menu(self, pos):
+        """Handle clicks on the title screen."""
+        if self.seed_box.collidepoint(pos):
+            self.seed_focus = True
+        else:
+            self.seed_focus = False
+        for button in self.buttons:
+            if button.rect.collidepoint(pos):
+                if button.action == "start":
+                    seed = int(self.seed_text) if self.seed_text.isdigit() else None
+                    self.run_state = Run(seed=seed)
+                    self.map_luna_pos = pygame.Vector2(400, 70)
+                    self.map_move = None
+                    self.map_arrive_timer = 0
+                    self.pending_battle = None
+                    self.found_notice_start = None
+                    self._play_campus_music()
+                    self._start_fade(self._begin_intro)
+                elif button.action == "quit":
+                    self.running = False
+
+    def _click_intro(self, pos):
+        """Advance the intro, or skip it when the skip button is clicked."""
+        if self.skip_button.rect.collidepoint(pos):
+            self._skip_intro()
+        else:
+            self._intro_advance()
+
+    def _click_map(self, pos):
+        """Start walking Luna to a chosen building."""
+        if self.map_move is not None:
+            return
+        for button in self.map_buttons:
+            if button.rect.collidepoint(pos) and not self.run_state.is_cleared(button.action):
+                target_y = button.rect.centery + 50
+                if target_y > WINDOW_SIZE[1] - 30:
+                    target_y = button.rect.centery - 50
+                self.map_move = (
+                    self.map_luna_pos.copy(),
+                    pygame.Vector2(button.rect.centerx, target_y),
+                    pygame.time.get_ticks(),
+                    MAP_WALK_TIME,
+                )
+                self.pending_battle = button.action
+                self.map_walk_index = 0
+                self.map_walk_timer = 0
+
+    def _click_battle(self, pos):
+        """Handle clicks on the battle menu and its submenus."""
+        if self.battle.phase != "player" or self.enemy_phase:
+            return
+        menu = self._battle_menu()
+        if menu["back"] and self.back_button.rect.collidepoint(pos):
+            self.submenu = None
+        for button in menu["buttons"]:
+            if button.rect.collidepoint(pos):
+                menu["activate"](button)
+                if menu["back"]:
+                    self.submenu = None
+        if self.battle.over:
+            self._finish_battle()
+        elif self.battle.phase == "enemy":
+            self.enemy_phase = True
+            self.enemy_timer = pygame.time.get_ticks()
+
+    def _click_end(self, pos):
+        """Return to the title screen from victory or defeat."""
+        if self.menu_button.rect.collidepoint(pos):
+            self.state = "menu"
+            self._play_title_music()
 
     def _reset_battle(self):
         """Clear per-battle animation and message state for a fresh fight."""
@@ -901,27 +957,25 @@ class Game:
                         self._skip_intro()
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 self.handle_click(event.pos)
-        if self.state == "menu":
-            self.draw_menu()
-        elif self.state == "intro":
-            self.draw_intro()
-        elif self.state == "map":
-            self.draw_map()
-            self.update_map()
-        elif self.state == "battle":
-            self.draw_battle()
-            self.update_battle()
-        elif self.state == "victory":
-            self.draw_end(
-                "Luna found Oxiel!",
-                self._scene_image("game/assets/images/w_end.2.png"),
-            )
-        elif self.state == "defeat":
-            self.draw_end("Luna was defeated.")
+        self._draw_screens[self.state]()
+        update = self._update_screens.get(self.state)
+        if update:
+            update()
         self._draw_spiral()
         self._draw_wipe()
         self._draw_fade()
         pygame.display.flip()
+
+    def _draw_victory(self):
+        """Draw the victory screen over the ending artwork."""
+        self.draw_end(
+            "Luna found Oxiel!",
+            self._scene_image("game/assets/images/w_end.2.png"),
+        )
+
+    def _draw_defeat(self):
+        """Draw the defeat screen."""
+        self.draw_end("Luna was defeated.")
 
     def run(self):
         """Run the main loop: handle events, draw the state, flip the display."""
