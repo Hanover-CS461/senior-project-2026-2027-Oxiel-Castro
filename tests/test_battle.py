@@ -33,7 +33,8 @@ class StatusFrameworkTest(TestCase):
     """Unit tests for the status system: apply, cap, tick, and multipliers."""
 
     def test_all_statuses_defined(self):
-        for key in ("prowl", "riled", "intimidated", "puffed", "night_vision"):
+        for key in ("prowl", "riled", "intimidated", "puffed", "night_vision",
+                    "poisoned", "webbed"):
             self.assertIn(key, STATUSES)
             self.assertIn("name", STATUSES[key])
             self.assertIn("duration", STATUSES[key])
@@ -107,6 +108,12 @@ class StatusFrameworkTest(TestCase):
         statuses["puffed"].duration = 1
         tick_statuses(statuses, "took_hit")
         self.assertNotIn("puffed", statuses)
+
+    def test_webbed_lowers_agility_and_caps(self):
+        statuses = {}
+        for _ in range(4):
+            apply_status(statuses, "webbed")
+        self.assertEqual(effective_agility(3, statuses), 1.0)
 
 
 class EnemyAITest(TestCase):
@@ -291,6 +298,24 @@ class BattleFlowTest(TestCase):
         battle.focus = 1
         self.assertIsNone(battle.use_instinct("yowl"))
         self.assertNotIn("intimidated", battle.enemy.statuses)
+
+    def test_poison_damages_player_each_round(self):
+        battle = Battle()
+        apply_status(battle.statuses, "poisoned")
+        battle.enemy.intent = HOVER
+        before = battle.player_hp
+        with patch("random.random", return_value=1.0):
+            battle.enemy_turn()
+        self.assertEqual(before - battle.player_hp, STATUSES["poisoned"]["dot"])
+
+    def test_poison_can_defeat_player(self):
+        battle = Battle()
+        battle.player_hp = 3
+        apply_status(battle.statuses, "poisoned")
+        battle.enemy.intent = HOVER
+        battle.enemy_turn()
+        self.assertTrue(battle.over)
+        self.assertFalse(battle.won)
 
     def test_victory_when_enemy_defeated(self):
         battle = Battle()

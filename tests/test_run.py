@@ -10,7 +10,7 @@ from unittest import TestCase
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "game"))
 
 from battle import Battle
-from run import BUILDINGS, DIFFICULTY_TIERS, Run
+from run import ARCHETYPE_MOVES, BUILDINGS, DIFFICULTY_TIERS, Run
 
 
 class RunTest(TestCase):
@@ -105,7 +105,7 @@ class RunTest(TestCase):
         easy = Run(seed=21, tier=DIFFICULTY_TIERS["Easy"]).start_battle(name)
         hard = Run(seed=21, tier=DIFFICULTY_TIERS["Hard"]).start_battle(name)
         self.assertGreater(hard.enemy.max_hp, easy.enemy.max_hp)
-        self.assertGreater(hard.enemy.agility, easy.enemy.agility)
+        self.assertEqual(hard.enemy.agility, easy.enemy.agility)
 
     def test_higher_difficulty_scales_final_boss(self):
         easy = Run(seed=23, tier=DIFFICULTY_TIERS["Easy"])
@@ -120,6 +120,32 @@ class RunTest(TestCase):
     def test_default_tier_matches_easy(self):
         default = Run(seed=25).tier
         self.assertEqual(default, DIFFICULTY_TIERS["Easy"])
+
+    def test_higher_difficulty_scales_enemy_damage(self):
+        name = Run(seed=27).available_buildings()[0]
+
+        def scratch_damage(tier):
+            enemy = Run(seed=27, tier=tier).start_battle(name).enemy
+            return next(m["damage"] for m in enemy.moves if m["name"] == "Screech")
+
+        self.assertLess(scratch_damage(DIFFICULTY_TIERS["Easy"]),
+                        scratch_damage(DIFFICULTY_TIERS["Hard"]))
+
+    def test_each_building_has_its_own_moveset(self):
+        light_names = {ARCHETYPE_MOVES[b["sprite"]]["light"][0] for b in BUILDINGS}
+        self.assertEqual(len(light_names), len(BUILDINGS))
+
+    def test_archetype_statuses_are_used(self):
+        statuses = {ARCHETYPE_MOVES[b["sprite"]]["status"][1] for b in BUILDINGS}
+        self.assertLessEqual({"poisoned", "webbed", "prowl", "intimidated"}, statuses)
+
+    def test_guard_uses_its_building_moveset(self):
+        run = Run(seed=31)
+        name = run.available_buildings()[0]
+        sprite = run.building_by_name(name)["sprite"]
+        enemy = run.start_battle(name).enemy
+        expected = ARCHETYPE_MOVES[sprite]["light"][0]
+        self.assertIn(expected, [m["name"] for m in enemy.moves])
 
 
 if __name__ == "__main__":

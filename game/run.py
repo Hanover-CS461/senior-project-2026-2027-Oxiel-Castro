@@ -23,26 +23,72 @@ BUILDINGS = [
     {"name": "CC", "sprite": "fly"},
 ]
 
-GUARD_MOVES = [
-    damage_move("Scratch", 5, 9, 55),
-    damage_move("Lunge", 10, 14, 25, heavy=True),
-    status_move("Hover", "prowl", "self", "its agility is up", 10),
-    status_move("Snarl", "intimidated", "player", "Luna is intimidated", 10),
-]
+# Agility is held constant across difficulties so higher tiers don't also
+# dodge more or steal the first turn. Enemy HP and damage carry the difficulty.
+GUARD_AGILITY = 4
+BOSS_AGILITY = 5
+FINAL_BOSS_AGILITY = 5
 
-BOSS_MOVES = [
-    damage_move("Claw", 8, 12, 50),
-    damage_move("Maul", 15, 22, 25, heavy=True),
-    status_move("Hover", "prowl", "self", "its agility is up", 10),
-    status_move("Snarl", "intimidated", "player", "Luna is intimidated", 15),
-]
+# Enemy HP: one base per role, all sharing HP_PER_TIER per difficulty step,
+# so guard < boss < final at every tier and the final boss is always the peak.
+GUARD_HP = 50
+BOSS_HP = 100
+FINAL_BOSS_HP = 150
+HP_PER_TIER = 35
 
-FINAL_BOSS_MOVES = [
-    damage_move("Rend", 10, 15, 50),
-    damage_move("Devour", 16, 22, 25, heavy=True),
-    status_move("Hover", "prowl", "self", "its agility is up", 10),
-    status_move("Snarl", "intimidated", "player", "Luna is intimidated", 15),
-]
+# Per-building enemy identity, keyed by the building's sprite. Each entry
+# gives the display name and base damage of a light and heavy attack, plus a
+# signature status move. Damage scales with difficulty via moves_for().
+ARCHETYPE_MOVES = {
+    "bat": {
+        "light": ("Screech", 5, 9),
+        "heavy": ("Dive", 11, 16),
+        "status": ("Flutter", "prowl", "self", "it flutters, agility up"),
+    },
+    "snake": {
+        "light": ("Bite", 6, 10),
+        "heavy": ("Constrict", 12, 17),
+        "status": ("Venom Spit", "poisoned", "player", "Luna is poisoned"),
+    },
+    "spider_2": {
+        "light": ("Nip", 4, 8),
+        "heavy": ("Venom Bite", 10, 15),
+        "status": ("Sling Web", "webbed", "player", "Luna is webbed"),
+    },
+    "fly": {
+        "light": ("Buzz", 5, 8),
+        "heavy": ("Sting", 11, 15),
+        "status": ("Irritate", "intimidated", "player", "Luna is intimidated"),
+    },
+}
+
+
+def moves_for(sprite, tier, boss=False):
+    """Build an enemy's move pool from its archetype, scaling damage by tier."""
+    spec = ARCHETYPE_MOVES[sprite]
+    light_name, light_low, light_high = spec["light"]
+    heavy_name, heavy_low, heavy_high = spec["heavy"]
+    status_name, status, target, message = spec["status"]
+    moves = [
+        damage_move(light_name, light_low, light_high, 50, tier=tier),
+        damage_move(heavy_name, heavy_low, heavy_high, 30, heavy=True, tier=tier),
+        status_move(status_name, status, target, message, 20),
+    ]
+    if boss and status != "intimidated":
+        moves.append(
+            status_move("Snarl", "intimidated", "player", "Luna is intimidated", 20)
+        )
+    return moves
+
+
+def final_boss_moves(tier):
+    """Moves for the Campus Guardian, with damage scaled by difficulty tier."""
+    return [
+        damage_move("Rend", 10, 15, 50, tier=tier),
+        damage_move("Devour", 16, 22, 25, heavy=True, tier=tier),
+        status_move("Hover", "prowl", "self", "its agility is up", 10),
+        status_move("Snarl", "intimidated", "player", "Luna is intimidated", 15),
+    ]
 
 
 class Run:
@@ -91,14 +137,30 @@ class Run:
         return [b["name"] for b in BUILDINGS if not self.is_cleared(b["name"])]
 
     def _guard(self, name, tier, sprite):
-        return Enemy(f"{name} Guard", 55 + tier * 15, 3 + tier, GUARD_MOVES, sprite)
+        return Enemy(
+            f"{name} Guard",
+            GUARD_HP + (tier - 1) * HP_PER_TIER,
+            GUARD_AGILITY,
+            moves_for(sprite, tier),
+            sprite,
+        )
 
     def _boss(self, name, tier, sprite):
-        return Enemy(f"{name} Boss", 90 + tier * 25, 4 + tier, BOSS_MOVES, sprite)
+        return Enemy(
+            f"{name} Boss",
+            BOSS_HP + (tier - 1) * HP_PER_TIER,
+            BOSS_AGILITY,
+            moves_for(sprite, tier, boss=True),
+            sprite,
+        )
 
     def _final_boss(self, tier):
         return Enemy(
-            "Campus Guardian", 110 + (tier - 1) * 30, 4 + tier, FINAL_BOSS_MOVES, "rat"
+            "Campus Guardian",
+            FINAL_BOSS_HP + (tier - 1) * HP_PER_TIER,
+            FINAL_BOSS_AGILITY,
+            final_boss_moves(tier),
+            "rat",
         )
 
     def start_battle(self, name):

@@ -1,6 +1,7 @@
 import random
 
 from config import (
+    DAMAGE_PER_TIER,
     PLAYER_MAX_FOCUS,
     PLAYER_MAX_HP,
     PLAYER_START_AGILITY,
@@ -19,6 +20,7 @@ class Status:
         self.modifiers = dict(definition["modifiers"])
         self.caps = dict(definition.get("caps", {}))
         self.triggers = set(definition.get("triggers", ()))
+        self.dot = definition.get("dot", 0)
 
 
 STATUSES = {
@@ -57,6 +59,21 @@ STATUSES = {
         "caps": {},
         "triggers": ("round_end",),
     },
+    "poisoned": {
+        "name": "Poisoned",
+        "duration": 3,
+        "modifiers": {},
+        "caps": {},
+        "triggers": ("round_end",),
+        "dot": 4,
+    },
+    "webbed": {
+        "name": "Webbed",
+        "duration": 3,
+        "modifiers": {"agility": -2},
+        "caps": {"agility": -2},
+        "triggers": ("round_end",),
+    },
 }
 
 
@@ -77,7 +94,7 @@ def apply_status(statuses, key):
         else:
             combined = existing.modifiers[stat] + value
             if cap is not None:
-                combined = min(combined, cap)
+                combined = min(combined, cap) if value > 0 else max(combined, cap)
         existing.modifiers[stat] = combined
 
 
@@ -104,9 +121,15 @@ def tick_statuses(statuses, trigger):
             del statuses[key]
 
 
-def damage_move(name, low, high, weight, heavy=False):
-    """Build a damage move; heavy moves are flagged so the UI can highlight them."""
-    move = {"name": name, "damage": (low, high), "weight": weight}
+def damage_move(name, low, high, weight, heavy=False, tier=1):
+    """Build a damage move; heavy moves are flagged so the UI can highlight them.
+
+    Each tier above the first adds DAMAGE_PER_TIER to both the low and high
+    ends of the damage range, so difficulty scales attack the same way it
+    scales enemy health.
+    """
+    bonus = (tier - 1) * DAMAGE_PER_TIER
+    move = {"name": name, "damage": (low + bonus, high + bonus), "weight": weight}
     if heavy:
         move["heavy"] = True
     return move
@@ -357,9 +380,22 @@ class Battle:
             self._luna_attack()
         if not self.over:
             self.phase = "player"
+            self._apply_round_end()
             tick_statuses(self.statuses, "round_end")
             tick_statuses(self.enemy.statuses, "round_end")
-            self.enemy.choose_intent()
+            if not self.over:
+                self.enemy.choose_intent()
+
+    def _apply_round_end(self):
+        """Deal any damage-over-time (e.g. Poisoned) at the end of a round."""
+        damage = sum(status.dot for status in self.statuses.values())
+        if damage <= 0:
+            return
+        self.player_hp = max(0, self.player_hp - damage)
+        self._say(f"Poison deals {damage} damage to Luna!")
+        if self.player_hp == 0:
+            self.over = True
+            self.won = False
 
     def _execute_intent(self):
         """Carry out the enemy's chosen move for the round."""

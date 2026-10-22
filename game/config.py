@@ -56,6 +56,10 @@ PLAYER_START_FOCUS = 16
 PLAYER_START_AGILITY = 3
 START_INVENTORY = {"wet_food": 3, "catnip": 2, "milk": 1}
 
+# Extra damage each enemy attack gains per difficulty tier above the first.
+# Easy (tier 1) keeps the base move values; Medium/Hard add this per tier.
+DAMAGE_PER_TIER = 2
+
 # Per-building battle backgrounds, keyed by building name. "guard" is the
 # first fight, "boss" the second. Any building not listed uses BATTLE_BG.
 BATTLE_BACKGROUNDS = {
