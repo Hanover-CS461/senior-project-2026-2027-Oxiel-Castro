@@ -85,10 +85,10 @@ class Game:
             Button(300, 330, 200, 60, "Quit", "quit"),
         ]
         self.difficulty_buttons = [
-            Button(300, 200 + i * 70, 200, 60, name, tier)
+            Button(300, 190 + i * 75, 200, 60, name, tier)
             for i, (name, tier) in enumerate(DIFFICULTY_TIERS.items())
         ]
-        self.difficulty_back = Button(300, 440, 200, 60, "Back", "back")
+        self.difficulty_back = Button(300, 415, 200, 60, "Back", "back")
         self.battle_buttons = [
             Button(20, 500, 150, 60, "Attack", "attack"),
             Button(175, 500, 150, 60, "Defend", "defend"),
@@ -200,11 +200,16 @@ class Game:
     def draw_difficulty(self):
         """Draw the difficulty selection screen with the seed preview."""
         self.screen.blit(self.assets.background, (0, 0))
+        panel = pygame.Surface((300, 345), pygame.SRCALPHA)
+        pygame.draw.rect(panel, (0, 0, 0, 165), panel.get_rect(), border_radius=14)
+        pygame.draw.rect(panel, (255, 255, 255, 90), panel.get_rect(), width=3,
+                         border_radius=14)
+        self.screen.blit(panel, (250, 158))
         label = "Choose difficulty"
         width = self.title_font.size(label)[0]
         draw_outlined_text(
             self.screen, self.title_font, label,
-            ((WINDOW_SIZE[0] - width) // 2, 100),
+            ((WINDOW_SIZE[0] - width) // 2, 88),
         )
         for button in self.difficulty_buttons:
             button.draw(self.screen, self.font)
