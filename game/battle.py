@@ -150,8 +150,8 @@ ENEMY_MOVES = {
     "fly": [
         damage_move("Buzz", 5, 8, 55),
         damage_move("Sting", 11, 15, 25, heavy=True),
-        status_move("Hover", "prowl", "self", "its agility is up", 10),
-        status_move("Irritate", "intimidated", "player", "Luna is intimidated", 10),
+        status_move("Hover", "prowl", "self", "its agility is up.", 10),
+        status_move("Irritate", "intimidated", "player", "Luna is intimidated.", 10),
     ],
 }
 
@@ -285,6 +285,56 @@ class Battle:
         self._say(f"The {self.enemy.name} moves faster and strikes first!")
         self.phase = "enemy"
         return None
+
+    def plan_attack(self):
+        """Commit to an attack and return the round's ordered steps.
+
+        The caller animates each step and applies it with resolve_step,
+        choosing to do so at the moment of contact for damage. Returns None
+        if Luna lacks the focus to attack.
+        """
+        if not self.can_attack():
+            self.message = "Not enough focus to attack!"
+            return None
+
+        self.luna_attacked = False
+        self.message = ""
+        self.phase = "enemy"
+        luna = {"actor": "luna"}
+        enemy = self.enemy_step()
+        if self._player_acts_first():
+            self._say("Luna strikes first!")
+            return [luna, enemy]
+        self._say(f"The {self.enemy.name} moves faster and strikes first!")
+        return [enemy, luna]
+
+    def plan_enemy_only(self):
+        """Return the round's steps after a non-attack action."""
+        self.phase = "enemy"
+        return [self.enemy_step()]
+
+    def enemy_step(self):
+        """Describe the enemy's upcoming move for this round."""
+        move = self.enemy.intent
+        return {"actor": "enemy", "move": move, "damage": "damage" in move}
+
+    def resolve_step(self, step):
+        """Apply a step's effect; call at contact for damage steps."""
+        if step["actor"] == "luna":
+            return self._luna_attack()
+        self._execute_intent()
+        return 0
+
+    def finish_round(self):
+        """End the round: damage over time, status ticks, and next intent."""
+        if self.over:
+            return
+        self._apply_round_end()
+        tick_statuses(self.statuses, "round_end")
+        tick_statuses(self.enemy.statuses, "round_end")
+        if not self.over:
+            self.phase = "player"
+            self.enemy.choose_intent()
 
     def rest(self):
         """Skip the turn to regain focus and HP, then give the turn to the enemy."""

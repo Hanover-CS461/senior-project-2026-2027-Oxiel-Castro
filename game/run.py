@@ -43,22 +43,22 @@ ARCHETYPE_MOVES = {
     "bat": {
         "light": ("Screech", 5, 9),
         "heavy": ("Dive", 11, 16),
-        "status": ("Flutter", "prowl", "self", "it flutters, agility up"),
+        "status": ("Flutter", "prowl", "self", "it flutters, agility up."),
     },
     "snake": {
         "light": ("Bite", 6, 10),
         "heavy": ("Constrict", 12, 17),
-        "status": ("Venom Spit", "poisoned", "player", "Luna is poisoned"),
+        "status": ("Venom Spit", "poisoned", "player", "Luna is poisoned."),
     },
     "spider_2": {
         "light": ("Nip", 4, 8),
         "heavy": ("Venom Bite", 10, 15),
-        "status": ("Sling Web", "webbed", "player", "Luna is webbed"),
+        "status": ("Sling Web", "webbed", "player", "Luna is webbed."),
     },
     "fly": {
         "light": ("Buzz", 5, 8),
         "heavy": ("Sting", 11, 15),
-        "status": ("Irritate", "intimidated", "player", "Luna is intimidated"),
+        "status": ("Irritate", "intimidated", "player", "Luna is intimidated."),
     },
 }
 
@@ -76,7 +76,7 @@ def moves_for(sprite, tier, boss=False):
     ]
     if boss and status != "intimidated":
         moves.append(
-            status_move("Snarl", "intimidated", "player", "Luna is intimidated", 20)
+            status_move("Snarl", "intimidated", "player", "Luna is intimidated.", 20)
         )
     return moves
 
@@ -86,8 +86,8 @@ def final_boss_moves(tier):
     return [
         damage_move("Rend", 10, 15, 50, tier=tier),
         damage_move("Devour", 16, 22, 25, heavy=True, tier=tier),
-        status_move("Hover", "prowl", "self", "its agility is up", 10),
-        status_move("Snarl", "intimidated", "player", "Luna is intimidated", 15),
+        status_move("Hover", "prowl", "self", "its agility is up.", 10),
+        status_move("Snarl", "intimidated", "player", "Luna is intimidated.", 15),
     ]
 
 

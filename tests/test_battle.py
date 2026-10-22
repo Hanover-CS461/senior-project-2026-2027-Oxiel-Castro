@@ -317,6 +317,42 @@ class BattleFlowTest(TestCase):
         self.assertTrue(battle.over)
         self.assertFalse(battle.won)
 
+    def test_plan_attack_orders_by_agility(self):
+        battle = Battle()
+        battle.enemy.agility = 1
+        plan = battle.plan_attack()
+        self.assertEqual([s["actor"] for s in plan], ["luna", "enemy"])
+
+    def test_plan_attack_defers_damage_to_resolve(self):
+        battle = Battle()
+        battle.enemy.agility = 1
+        plan = battle.plan_attack()
+        self.assertEqual(battle.enemy.hp, 80)
+        with patch("random.random", return_value=1.0), patch("random.randint", return_value=13):
+            battle.resolve_step(plan[0])
+        self.assertEqual(battle.enemy.hp, 67)
+
+    def test_plan_attack_none_without_focus(self):
+        battle = Battle()
+        battle.focus = 0
+        self.assertIsNone(battle.plan_attack())
+
+    def test_plan_enemy_only_and_finish_round(self):
+        battle = Battle()
+        plan = battle.plan_enemy_only()
+        self.assertEqual([s["actor"] for s in plan], ["enemy"])
+        with patch("random.random", return_value=1.0):
+            battle.resolve_step(plan[0])
+        battle.finish_round()
+        self.assertEqual(battle.phase, "player")
+
+    def test_enemy_step_flags_damage_moves(self):
+        battle = Battle()
+        battle.enemy.intent = BUZZ
+        self.assertTrue(battle.enemy_step()["damage"])
+        battle.enemy.intent = HOVER
+        self.assertFalse(battle.enemy_step()["damage"])
+
     def test_victory_when_enemy_defeated(self):
         battle = Battle()
         battle.enemy.agility = 1

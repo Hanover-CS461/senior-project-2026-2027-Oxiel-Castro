@@ -41,6 +41,12 @@ def draw_disabled_button(screen, button, font):
     screen.blit(text_surface, text_rect)
 
 
+def flash_surface(surface, color=COLOR_WHITE):
+    """Return a solid-color silhouette of a sprite, used as a hit flash."""
+    mask = pygame.mask.from_surface(surface)
+    return mask.to_surface(setcolor=color, unsetcolor=(0, 0, 0, 0))
+
+
 def wrap_lines(sentences, font, max_width):
     """Word-wrap sentences into lines that fit within max_width."""
     lines = []
@@ -67,12 +73,14 @@ def draw_bar(screen, font, x, y, width, height, value, max_value, color, label=N
         draw_outlined_text(screen, font, label, (x, y - 26))
 
 
-def draw_outlined_text(screen, font, text, pos, color=COLOR_WHITE, outline=COLOR_BLACK):
-    """Draw text with a translucent black backing and outline for readability."""
+def draw_outlined_text(screen, font, text, pos, color=COLOR_WHITE, outline=COLOR_BLACK,
+                       backing=True):
+    """Draw text with an outline and, by default, a translucent black backing."""
     text_w, text_h = font.size(text)
     pad_x, pad_y = 8, 4
     box = pygame.Surface((text_w + pad_x * 2, text_h + pad_y * 2), pygame.SRCALPHA)
-    box.fill((0, 0, 0, 110))
+    if backing:
+        box.fill((0, 0, 0, 110))
     base = font.render(text, True, color)
     mask = font.render(text, True, outline)
     x, y = pad_x, pad_y

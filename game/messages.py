@@ -1,67 +1,71 @@
-"""Battle narration paging.
+"""Battle narration display.
 
-Splits the ever-growing battle message into wrapped, timed pages so the
-battle screen can reveal it a few lines at a time. Owns only the paging
-state; the caller supplies the current message and the frame time.
+Keeps only the most recent lines of the ever-growing battle message and
+reveals new lines on a fixed cadence, so every line stays on screen for
+the same amount of time instead of flashing by at animation speed.
 """
 
 import re
 
-from config import MESSAGE_MAX_WIDTH, MESSAGE_PAGE_LINES, READ_DELAY
+from config import (
+    MESSAGE_HOLD,
+    MESSAGE_MAX_LINES,
+    MESSAGE_MAX_WIDTH,
+    READ_DELAY,
+)
 from ui import wrap_lines
 
 
 class MessageLog:
-    """Pages a battle narration string into wrapped, timed pages."""
+    """Reveals the most recent lines of a battle narration on a fixed cadence."""
 
-    def __init__(self, font):
+    def __init__(self, font, max_lines=MESSAGE_MAX_LINES):
         """Create an empty log that wraps text with the given font."""
         self.font = font
-        self._pages = []
-        self._page = 0
+        self.max_lines = max_lines
+        self._lines = []
+        self._queue = []
         self._timer = 0
         self._last = None
 
     def reset(self):
-        """Clear all paging state for a fresh battle."""
-        self._pages = []
-        self._page = 0
+        """Clear all state for a fresh battle."""
+        self._lines = []
+        self._queue = []
         self._timer = 0
         self._last = None
 
     def sync(self, message, now):
-        """Rebuild the pages whenever the battle message changes."""
+        """Queue the latest lines whenever the battle message changes."""
         if message == self._last:
             return
         self._last = message
         sentences = [s for s in re.split(r"(?<=[.!])\s+", message) if s]
-        lines = wrap_lines(sentences, self.font, MESSAGE_MAX_WIDTH)
-        self._pages = [
-            lines[i : i + MESSAGE_PAGE_LINES]
-            for i in range(0, len(lines), MESSAGE_PAGE_LINES)
-        ]
-        self._page = 0
-        self._timer = now
+        lines = wrap_lines(sentences, self.font, MESSAGE_MAX_WIDTH)[-self.max_lines:]
+        if lines and lines != self._lines and lines != self._queue[-1:]:
+            self._queue.append(lines)
 
     def advance(self, now):
-        """Advance to the next page of the log after a pause."""
-        if self._page < len(self._pages) - 1 and now - self._timer > READ_DELAY:
-            self._page += 1
+        """Reveal the next queued lines once the current ones have been held."""
+        if not self._queue:
+            return
+        if not self._lines or now - self._timer >= MESSAGE_HOLD:
+            self._lines = self._queue.pop(0)
             self._timer = now
 
     def done(self):
-        """Return True once the final page is being shown."""
-        return not self._pages or self._page >= len(self._pages) - 1
+        """Return True once no queued lines remain."""
+        return not self._queue
 
     def read_out(self, now):
-        """Return True once the final page has been shown for READ_DELAY."""
+        """Return True once the final lines have been held for READ_DELAY."""
         return self.done() and now - self._timer > READ_DELAY
 
-    def lines(self, fallback):
-        """Return the lines of the current page, or [fallback] if empty."""
-        return self._pages[self._page] if self._pages else [fallback]
+    def lines(self, fallback=None):
+        """Return the lines currently on screen."""
+        return self._lines
 
     @property
     def has_more(self):
-        """Return True when pages remain after the current one."""
-        return len(self._pages) > self._page + 1
+        """Return True while lines are still queued."""
+        return bool(self._queue)
