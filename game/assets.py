@@ -12,6 +12,9 @@ from config import (
     BATTLE_BACKGROUNDS,
     BATTLE_BG,
     CAMPUS_IMAGE,
+    COLOR_END_BG,
+    DEFEAT_FRAME,
+    DEFEAT_SCALE,
     ENEMY_SPRITES,
     LUNA_FRAMES,
     LUNA_SHEET,
@@ -47,6 +50,14 @@ class Assets:
         self.luna_attack_frames = load_frames(LUNA_SHEET, ATTACK_FRAMES, scale=5)
         self.map_idle_frames = load_frames(LUNA_SHEET, LUNA_FRAMES, scale=2)
         self.map_walk_frames = load_frames(LUNA_SHEET, WALK_FRAMES, scale=2)
+
+        self.defeat_frame = load_frames(LUNA_SHEET, [DEFEAT_FRAME], scale=DEFEAT_SCALE)[0]
+        self.defeat_background = pygame.Surface(WINDOW_SIZE)
+        self.defeat_background.fill(COLOR_END_BG)
+        self.defeat_background.blit(
+            self.defeat_frame,
+            self.defeat_frame.get_rect(center=(WINDOW_SIZE[0] // 2, 140)),
+        )
 
     def scene_image(self, path):
         """Load and cache a scene image, falling back to the menu background."""

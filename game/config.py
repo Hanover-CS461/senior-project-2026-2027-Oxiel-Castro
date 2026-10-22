@@ -161,3 +161,7 @@ ATTACK_FRAMES = [
     (369, 455, 22, 18),
     (401, 456, 25, 17),
 ]
+
+# Defeat screen: Luna curled in her box with a paw poking out (crop on Luna2.png).
+DEFEAT_FRAME = (69, 556, 29, 15)
+DEFEAT_SCALE = 12

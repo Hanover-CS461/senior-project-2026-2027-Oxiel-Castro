@@ -800,8 +800,8 @@ class Game:
         )
 
     def _draw_defeat(self):
-        """Draw the defeat screen."""
-        self.draw_end("Luna was defeated.")
+        """Draw the defeat screen over Luna's box pose."""
+        self.draw_end("Luna was defeated.", self.assets.defeat_background)
 
     def run(self):
         """Run the main loop: handle events, draw the state, flip the display."""
