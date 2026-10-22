@@ -11,13 +11,16 @@ from config import (
 )
 
 
-DIFFICULTY_TIER = 1
+DEFAULT_TIER = 1
+
+# Player-selectable difficulties, mapped to the enemy tier they apply.
+DIFFICULTY_TIERS = {"Easy": 1, "Medium": 2, "Hard": 3}
 
 BUILDINGS = [
-    {"name": "Lynn Hall", "tier": DIFFICULTY_TIER, "sprite": "bat"},
-    {"name": "Horner", "tier": DIFFICULTY_TIER, "sprite": "snake"},
-    {"name": "KP", "tier": DIFFICULTY_TIER, "sprite": "spider_2"},
-    {"name": "CC", "tier": DIFFICULTY_TIER, "sprite": "fly"},
+    {"name": "Lynn Hall", "sprite": "bat"},
+    {"name": "Horner", "sprite": "snake"},
+    {"name": "KP", "sprite": "spider_2"},
+    {"name": "CC", "sprite": "fly"},
 ]
 
 GUARD_MOVES = [
@@ -54,10 +57,11 @@ class Run:
     HEAL_BETWEEN = 10
     BETWEEN_FOCUS = 20
 
-    def __init__(self, seed=None):
+    def __init__(self, seed=None, tier=DEFAULT_TIER):
         """Start a run, seeding the human's building for reproducibility."""
         self.seed = seed if seed is not None else random.randrange(1000000)
         self.rng = random.Random(self.seed)
+        self.tier = tier
         self.player_hp = self.START_HP
         self.player_hp_max = self.MAX_HP
         self.focus = self.START_FOCUS
@@ -92,21 +96,22 @@ class Run:
     def _boss(self, name, tier, sprite):
         return Enemy(f"{name} Boss", 90 + tier * 25, 4 + tier, BOSS_MOVES, sprite)
 
-    def _final_boss(self):
-        return Enemy("Campus Guardian", 110, 5, FINAL_BOSS_MOVES, "rat")
+    def _final_boss(self, tier):
+        return Enemy(
+            "Campus Guardian", 110 + (tier - 1) * 30, 4 + tier, FINAL_BOSS_MOVES, "rat"
+        )
 
     def start_battle(self, name):
         """Create the Battle for the current stage of a building."""
         self.current_building = name
         stage = self.stage.get(name, 0)
-        tier = self.building_by_name(name)["tier"]
         sprite = self.building_by_name(name)["sprite"]
         if name == self.human_building and stage >= 2:
-            enemy = self._final_boss()
+            enemy = self._final_boss(self.tier)
         elif stage == 0:
-            enemy = self._guard(name, tier, sprite)
+            enemy = self._guard(name, self.tier, sprite)
         else:
-            enemy = self._boss(name, tier, sprite)
+            enemy = self._boss(name, self.tier, sprite)
         return Battle(
             player_hp=self.player_hp,
             player_hp_max=self.player_hp_max,

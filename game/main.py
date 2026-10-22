@@ -33,7 +33,7 @@ from config import (
 )
 from messages import MessageLog
 from music import Music
-from run import BUILDINGS, Run
+from run import BUILDINGS, DIFFICULTY_TIERS, Run
 from story import SCENES, Story
 from transitions import Transitions
 from ui import (
@@ -84,6 +84,11 @@ class Game:
             Button(300, 250, 200, 60, "Start", "start"),
             Button(300, 330, 200, 60, "Quit", "quit"),
         ]
+        self.difficulty_buttons = [
+            Button(300, 200 + i * 70, 200, 60, name, tier)
+            for i, (name, tier) in enumerate(DIFFICULTY_TIERS.items())
+        ]
+        self.difficulty_back = Button(300, 440, 200, 60, "Back", "back")
         self.battle_buttons = [
             Button(20, 500, 150, 60, "Attack", "attack"),
             Button(175, 500, 150, 60, "Defend", "defend"),
@@ -145,6 +150,7 @@ class Game:
 
         self._click_handlers = {
             "menu": self._click_menu,
+            "difficulty": self._click_difficulty,
             "intro": self._click_intro,
             "map": self._click_map,
             "battle": self._click_battle,
@@ -153,6 +159,7 @@ class Game:
         }
         self._draw_screens = {
             "menu": self.draw_menu,
+            "difficulty": self.draw_difficulty,
             "intro": self.draw_intro,
             "map": self.draw_map,
             "battle": self.draw_battle,
@@ -189,6 +196,21 @@ class Game:
         label = self.seed_text if self.seed_text else "random"
         seed_surface = self.small_font.render(label, True, COLOR_WHITE)
         self.screen.blit(seed_surface, (self.seed_box.x + 8, self.seed_box.y + 4))
+
+    def draw_difficulty(self):
+        """Draw the difficulty selection screen with the seed preview."""
+        self.screen.blit(self.assets.background, (0, 0))
+        label = "Choose difficulty"
+        width = self.title_font.size(label)[0]
+        draw_outlined_text(
+            self.screen, self.title_font, label,
+            ((WINDOW_SIZE[0] - width) // 2, 100),
+        )
+        for button in self.difficulty_buttons:
+            button.draw(self.screen, self.font)
+        self.difficulty_back.draw(self.screen, self.font)
+        seed = self.seed_text if self.seed_text else "random"
+        draw_outlined_text(self.screen, self.small_font, f"Seed: {seed}", (20, 540))
 
     def draw_map(self):
         """Draw the campus map with building choices and run status."""
@@ -602,17 +624,31 @@ class Game:
         for button in self.buttons:
             if button.rect.collidepoint(pos):
                 if button.action == "start":
-                    seed = int(self.seed_text) if self.seed_text.isdigit() else None
-                    self.run_state = Run(seed=seed)
-                    self.map_luna_pos = pygame.Vector2(400, 70)
-                    self.map_move = None
-                    self.map_arrive_timer = 0
-                    self.pending_battle = None
-                    self.found_notice_start = None
-                    self.music.play_campus()
-                    self.transitions.start_fade(self._begin_intro)
+                    self.state = "difficulty"
                 elif button.action == "quit":
                     self.running = False
+
+    def _click_difficulty(self, pos):
+        """Start a run at the chosen difficulty, or go back to the title."""
+        if self.difficulty_back.rect.collidepoint(pos):
+            self.state = "menu"
+            return
+        for button in self.difficulty_buttons:
+            if button.rect.collidepoint(pos):
+                self._start_run(button.action)
+                return
+
+    def _start_run(self, tier):
+        """Create a run at the given difficulty and fade into the intro."""
+        seed = int(self.seed_text) if self.seed_text.isdigit() else None
+        self.run_state = Run(seed=seed, tier=tier)
+        self.map_luna_pos = pygame.Vector2(400, 70)
+        self.map_move = None
+        self.map_arrive_timer = 0
+        self.pending_battle = None
+        self.found_notice_start = None
+        self.music.play_campus()
+        self.transitions.start_fade(self._begin_intro)
 
     def _click_intro(self, pos):
         """Advance the intro, or skip it when the skip button is clicked."""

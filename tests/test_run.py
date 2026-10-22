@@ -10,7 +10,7 @@ from unittest import TestCase
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "game"))
 
 from battle import Battle
-from run import BUILDINGS, Run
+from run import BUILDINGS, DIFFICULTY_TIERS, Run
 
 
 class RunTest(TestCase):
@@ -96,6 +96,30 @@ class RunTest(TestCase):
         run.end_battle(battle)
         self.assertTrue(run.won)
         self.assertTrue(run.is_cleared(human))
+
+    def test_difficulty_tiers_map_easy_medium_hard(self):
+        self.assertEqual(DIFFICULTY_TIERS, {"Easy": 1, "Medium": 2, "Hard": 3})
+
+    def test_higher_difficulty_scales_guard(self):
+        name = Run(seed=21).available_buildings()[0]
+        easy = Run(seed=21, tier=DIFFICULTY_TIERS["Easy"]).start_battle(name)
+        hard = Run(seed=21, tier=DIFFICULTY_TIERS["Hard"]).start_battle(name)
+        self.assertGreater(hard.enemy.max_hp, easy.enemy.max_hp)
+        self.assertGreater(hard.enemy.agility, easy.enemy.agility)
+
+    def test_higher_difficulty_scales_final_boss(self):
+        easy = Run(seed=23, tier=DIFFICULTY_TIERS["Easy"])
+        hard = Run(seed=23, tier=DIFFICULTY_TIERS["Hard"])
+        for run in (easy, hard):
+            run.stage[run.human_building] = 2
+        easy_boss = easy.start_battle(easy.human_building)
+        hard_boss = hard.start_battle(hard.human_building)
+        self.assertEqual(easy_boss.enemy.name, "Campus Guardian")
+        self.assertGreater(hard_boss.enemy.max_hp, easy_boss.enemy.max_hp)
+
+    def test_default_tier_matches_easy(self):
+        default = Run(seed=25).tier
+        self.assertEqual(default, DIFFICULTY_TIERS["Easy"])
 
 
 if __name__ == "__main__":
