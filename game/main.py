@@ -54,6 +54,21 @@ POPUP_RISE = 54
 SHAKE_TIME = 220
 SHAKE_MAG = 6
 TWEEN_RATE = 0.22
+DODGE_TIME = 300
+DODGE_HOP = 26
+HEAL_SPARKLES = 12
+SPARKLE_TIME = 650
+DEATH_TIME = 1000
+
+# Status aura colors, in display priority order.
+STATUS_AURA = (
+    ("poisoned", (60, 220, 60)),
+    ("webbed", (120, 170, 255)),
+    ("riled", (255, 120, 30)),
+    ("puffed", (255, 255, 255)),
+    ("prowl", (0, 200, 255)),
+    ("intimidated", (220, 40, 40)),
+)
 
 # Battle narration / tooltip layout.
 MESSAGE_PANEL_X = 24
@@ -109,11 +124,16 @@ class Game:
         # Hit feedback: hurt flashes, floating numbers, bar tween, screen shake.
         self.enemy_hurt_until = 0
         self.luna_hurt_until = 0
+        self.enemy_dodge_until = 0
+        self.luna_dodge_until = 0
         self.popups = []
+        self.particles = []
         self.enemy_hp_display = 0.0
         self.luna_hp_display = 0.0
         self.focus_display = 0.0
         self.shake_until = 0
+        self.death_start = None
+        self._flash_cache = {}
 
         self.buttons = [
             Button(300, 250, 200, 60, "Start", "start"),
@@ -172,14 +192,10 @@ class Game:
         self.intro_start = 0
         self.skip_button = Button(660, 545, 120, 40, "Skip", "skip")
         self.music.play_title()
-        self._preload_thread = None
         try:
-            self._preload_thread = threading.Thread(
-                target=self._preload_scenes, daemon=True
-            )
-            self._preload_thread.start()
+            threading.Thread(target=self._preload_scenes, daemon=True).start()
         except RuntimeError:
-            self._preload_thread = None
+            pass
 
         self._click_handlers = {
             "menu": self._click_menu,
@@ -462,6 +478,7 @@ class Game:
         if menu["back"]:
             self.back_button.draw(self.screen, self.small_font)
         self._draw_tooltip(hovered)
+        self._draw_particles(now)
         self._draw_popups(now)
         self._apply_shake(now)
 
@@ -471,42 +488,102 @@ class Game:
         self.enemy_hp_display += (self.battle.enemy.hp - self.enemy_hp_display) * TWEEN_RATE
         self.focus_display += (self.battle.focus - self.focus_display) * TWEEN_RATE
 
+    def _flash(self, frame, color):
+        """Return a cached solid-color silhouette of a frame."""
+        key = (id(frame), color)
+        surf = self._flash_cache.get(key)
+        if surf is None:
+            surf = flash_surface(frame, color)
+            self._flash_cache[key] = surf
+        return surf
+
     def _blit_flash(self, frame, pos, color, alpha):
         """Blit a solid-color silhouette of a sprite over it as a tint/flash."""
-        flash = flash_surface(frame, color)
+        flash = self._flash(frame, color)
         flash.set_alpha(max(0, min(255, int(alpha))))
         self.screen.blit(flash, pos)
 
+    def _status_aura(self, frame, pos, statuses, now):
+        """Draw a pulsing colored aura for a combatant's active statuses."""
+        for key, color in STATUS_AURA:
+            if key in statuses:
+                break
+        else:
+            return
+        t = (now % 600) / 600
+        alpha = 35 + int(35 * (1 - abs(2 * t - 1)))
+        self._blit_flash(frame, pos, color, alpha)
+
+    def _dodge_offset(self, now, until, direction):
+        """Return (dx, dy) for a quick side-hop while dodging."""
+        if now >= until:
+            return 0, 0
+        progress = (DODGE_TIME - (until - now)) / DODGE_TIME
+        phase = 1 - abs(2 * progress - 1)
+        return direction * int(DODGE_HOP * phase), -int(DODGE_HOP * 0.5 * phase)
+
     def _draw_luna(self, now):
-        """Draw Luna, showing a white flash and recoil while hurt."""
+        """Draw Luna with her dodge hop, status aura, and hurt flash."""
         if self.attack_state == "attacking":
             frame = self.assets.luna_attack_frames[self.attack_index]
         elif self.attack_state in ("walk_to", "walk_back"):
             frame = self.assets.walk_frames[self.walk_index]
         else:
             frame = self.assets.luna_frames[self.anim_index]
-        x = self.luna_x
+        x, y = self.luna_x, 340
         if now < self.luna_hurt_until:
-            frac = (self.luna_hurt_until - now) / HURT_TIME
-            x -= int(RECOIL * frac)
-        self.screen.blit(frame, (x, 340))
+            x -= int(RECOIL * (self.luna_hurt_until - now) / HURT_TIME)
+        dx, dy = self._dodge_offset(now, self.luna_dodge_until, -1)
+        x, y = x + dx, y + dy
+        self.screen.blit(frame, (x, y))
+        self._status_aura(frame, (x, y), self.battle.statuses, now)
         if now < self.luna_hurt_until:
-            self._blit_flash(frame, (x, 340), COLOR_WHITE, 210 * (self.luna_hurt_until - now) / HURT_TIME)
+            self._blit_flash(frame, (x, y), COLOR_WHITE, 210 * (self.luna_hurt_until - now) / HURT_TIME)
 
     def _draw_enemy(self, now):
-        """Draw the enemy, flashing on hit and brightening while it strikes."""
+        """Draw the enemy with dodge hop, status aura, flash, and death."""
         frames = self.assets.enemy_frames[self.battle.enemy.sprite]
         frame = frames[self.enemy_anim_index % len(frames)]
+        if self.battle.over and self.battle.won and self.death_start is not None:
+            if self._enemy_dying(now):
+                self._draw_enemy_death(frame, now)
+            return
         x = self.enemy_x - frame.get_width() // 2
         y = 360 - frame.get_height() // 2
         if now < self.enemy_hurt_until:
-            frac = (self.enemy_hurt_until - now) / HURT_TIME
-            x += int(RECOIL * frac)
+            x += int(RECOIL * (self.enemy_hurt_until - now) / HURT_TIME)
+        dx, dy = self._dodge_offset(now, self.enemy_dodge_until, 1)
+        x, y = x + dx, y + dy
         self.screen.blit(frame, (x, y))
         if self.enemy_attack_state == "attacking":
             self._blit_flash(frame, (x, y), COLOR_HEAVY, 110)
+        self._status_aura(frame, (x, y), self.battle.enemy.statuses, now)
         if now < self.enemy_hurt_until:
             self._blit_flash(frame, (x, y), COLOR_WHITE, 210 * (self.enemy_hurt_until - now) / HURT_TIME)
+
+    def _enemy_dying(self, now):
+        """Return True while the defeated enemy's death animation plays."""
+        return (
+            self.battle.over
+            and self.battle.won
+            and self.death_start is not None
+            and now - self.death_start < DEATH_TIME
+        )
+
+    def _draw_enemy_death(self, frame, now):
+        """Flash on the killing blow, then tip the enemy over as it fades."""
+        progress = min(1.0, (now - self.death_start) / DEATH_TIME)
+        if progress < 0.18:
+            x = self.enemy_x - frame.get_width() // 2
+            y = 360 - frame.get_height() // 2
+            self.screen.blit(frame, (x, y))
+            self._blit_flash(frame, (x, y), COLOR_WHITE, 220)
+            return
+        q = (progress - 0.18) / 0.82
+        img = pygame.transform.rotate(frame, -70 * q)
+        img.set_alpha(int(255 * (1 - q)))
+        feet_y = 360 + frame.get_height() // 2 + int(12 * q)
+        self.screen.blit(img, img.get_rect(midbottom=(self.enemy_x, feet_y)))
 
     def _draw_popups(self, now):
         """Draw and expire floating damage numbers."""
@@ -526,6 +603,24 @@ class Game:
             self.screen.blit(text, (popup["x"], y))
             alive.append(popup)
         self.popups = alive
+
+    def _draw_particles(self, now):
+        """Draw and expire the little sparkle particles (heals)."""
+        alive = []
+        for p in self.particles:
+            age = now - p["start"]
+            if age > SPARKLE_TIME:
+                continue
+            frac = age / SPARKLE_TIME
+            x = p["x"] + p["vx"] * age / 1000.0
+            y = p["y"] + p["vy"] * age / 1000.0
+            alpha = int(255 * (1 - frac))
+            size = 3
+            spark = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+            pygame.draw.circle(spark, (*p["color"], alpha), (size, size), size)
+            self.screen.blit(spark, (int(x) - size, int(y) - size))
+            alive.append(p)
+        self.particles = alive
 
     def _apply_shake(self, now):
         """Jitter the whole frame briefly after a heavy hit."""
@@ -830,7 +925,15 @@ class Game:
             self.submenu = None
         for button in menu["buttons"]:
             if button.rect.collidepoint(pos):
+                hp_before = self.battle.player_hp
+                focus_before = self.battle.focus
                 menu["activate"](button)
+                healed = self.battle.player_hp - hp_before
+                if healed > 0:
+                    self._spawn_heal(healed)
+                gained = self.battle.focus - focus_before
+                if gained > 0:
+                    self._spawn_focus(gained)
                 if menu["back"]:
                     self.submenu = None
         if not self.turn_active and self.battle.phase == "enemy":
@@ -860,8 +963,12 @@ class Game:
         self.turn_active = False
         self.enemy_hurt_until = 0
         self.luna_hurt_until = 0
+        self.enemy_dodge_until = 0
+        self.luna_dodge_until = 0
         self.popups = []
+        self.particles = []
         self.shake_until = 0
+        self.death_start = None
         self.enemy_hp_display = float(self.battle.enemy.hp)
         self.luna_hp_display = float(self.battle.player_hp)
         self.focus_display = float(self.battle.focus)
@@ -890,9 +997,17 @@ class Game:
         if not self.turn_active:
             return
 
-        # A decided fight waits for the current swing, then leaves the screen.
+        # A decided fight waits for the current swing and death animation.
         if self.battle.over:
-            if not self._luna_busy() and not self._enemy_busy():
+            if self.battle.won:
+                if self.death_start is None:
+                    self.death_start = now
+                    self._spawn_death_dust()
+                if (not self._luna_busy() and not self._enemy_busy()
+                        and now - self.death_start >= DEATH_TIME):
+                    self.turn_active = False
+                    self._finish_battle()
+            elif not self._luna_busy() and not self._enemy_busy():
                 self.turn_active = False
                 self._finish_battle()
             return
@@ -915,7 +1030,10 @@ class Game:
             self.step_resolved = False
         if not self.step_resolved and self.attack_state == "attacking":
             damage = self.battle.resolve_step(self.turn_steps[self.step_index])
-            self._after_hit(damage, on_enemy=True)
+            if damage > 0:
+                self._after_hit(damage, on_enemy=True)
+            else:
+                self._dodge("enemy", now)
             self.step_resolved = True
         if self.attack_state is None:
             self._next_step(now)
@@ -945,11 +1063,15 @@ class Game:
         if not self.step_resolved and self.enemy_attack_state == "attacking":
             before = self.battle.player_hp
             self.battle.resolve_step(step)
-            self._after_hit(
-                before - self.battle.player_hp,
-                on_enemy=False,
-                heavy=step["move"].get("heavy", False),
-            )
+            dealt = before - self.battle.player_hp
+            if dealt > 0:
+                self._after_hit(
+                    dealt,
+                    on_enemy=False,
+                    heavy=step["move"].get("heavy", False),
+                )
+            else:
+                self._dodge("luna", now)
             self.step_resolved = True
         if self.enemy_attack_state is None:
             self._next_step(now)
@@ -970,22 +1092,66 @@ class Game:
 
     def _after_hit(self, damage, on_enemy, heavy=False):
         """Trigger hit feedback for a landed blow."""
-        if damage <= 0:
-            return
         now = pygame.time.get_ticks()
         if on_enemy:
             self.enemy_hurt_until = now + HURT_TIME
-            self._spawn_popup(damage, self.enemy_x - 6, 300, COLOR_HEAVY)
+            self._spawn_popup(f"-{damage}", self.enemy_x - 6, 300, COLOR_HEAVY)
         else:
             self.luna_hurt_until = now + HURT_TIME
-            self._spawn_popup(damage, self.luna_x + 46, 300, COLOR_HP_BAR)
+            self._spawn_popup(f"-{damage}", self.luna_x + 46, 300, COLOR_HP_BAR)
         if heavy:
             self.shake_until = now + SHAKE_TIME
 
-    def _spawn_popup(self, amount, x, y, color):
-        """Add a floating damage number above a combatant."""
+    def _dodge(self, who, now):
+        """React to a dodged attack: hop the target aside and show MISS."""
+        if who == "enemy":
+            self.enemy_dodge_until = now + DODGE_TIME
+            self._spawn_popup("MISS", self.enemy_x - 18, 300, COLOR_WHITE)
+        else:
+            self.luna_dodge_until = now + DODGE_TIME
+            self._spawn_popup("MISS", self.luna_x + 40, 300, COLOR_WHITE)
+
+    def _spawn_heal(self, amount):
+        """Show a heal number and a burst of green sparkles over Luna."""
+        self._spawn_gain(amount, (80, 230, 120), 300)
+
+    def _spawn_focus(self, amount):
+        """Show a focus number and a burst of blue sparkles over Luna."""
+        self._spawn_gain(amount, (90, 170, 255), 266)
+
+    def _spawn_gain(self, amount, color, y):
+        """Spawn a +N popup and a matching burst of sparkles over Luna."""
+        now = pygame.time.get_ticks()
+        self._spawn_popup(f"+{amount}", self.luna_x + 36, y, color)
+        for _ in range(HEAL_SPARKLES):
+            self.particles.append({
+                "x": self.luna_x + random.randint(0, 120),
+                "y": 340 + random.randint(0, 80),
+                "vx": random.uniform(-25, 25),
+                "vy": random.uniform(-80, -30),
+                "start": now,
+                "color": color,
+            })
+
+    def _spawn_death_dust(self):
+        """Puff of dust at the enemy's feet when it collapses."""
+        now = pygame.time.get_ticks()
+        frames = self.assets.enemy_frames[self.battle.enemy.sprite]
+        feet_y = 360 + frames[0].get_height() // 2
+        for _ in range(12):
+            self.particles.append({
+                "x": self.enemy_x + random.randint(-30, 30),
+                "y": feet_y - random.randint(0, 10),
+                "vx": random.uniform(-45, 45),
+                "vy": random.uniform(-55, -15),
+                "start": now,
+                "color": (185, 170, 145),
+            })
+
+    def _spawn_popup(self, text, x, y, color):
+        """Add a floating text popup above a combatant."""
         self.popups.append({
-            "text": f"-{amount}",
+            "text": text,
             "x": x,
             "y": y,
             "start": pygame.time.get_ticks(),

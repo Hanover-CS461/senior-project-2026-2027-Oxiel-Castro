@@ -28,6 +28,15 @@ class SpriteSheet:
         return self.sheet.subsurface(rect)
 
 
+def _frame_size(w, h, size, scale):
+    """Return the drawn (width, height) for a frame given size/scale options."""
+    if size is not None:
+        return size
+    if scale is not None:
+        return int(w * scale), int(h * scale)
+    return w, h
+
+
 def load_frames(path, frame_rects, size=None, scale=None, flip=False, normalize=False):
     """Load a sprite sheet and scale its frames to a size or scale factor."""
     sheet = SpriteSheet(path)
@@ -35,17 +44,13 @@ def load_frames(path, frame_rects, size=None, scale=None, flip=False, normalize=
     max_w = max_h = 0
     if normalize:
         for x, y, w, h in frame_rects:
-            fw = w if size is None else size[0]
-            fh = h if size is None else size[1]
-            if scale is not None:
-                fw, fh = int(w * scale), int(h * scale)
+            fw, fh = _frame_size(w, h, size, scale)
             max_w, max_h = max(max_w, fw), max(max_h, fh)
     for x, y, w, h in frame_rects:
         frame = sheet.frame((x, y, w, h))
-        if size is not None:
-            frame = pygame.transform.scale(frame, size)
-        elif scale is not None:
-            frame = pygame.transform.scale(frame, (int(w * scale), int(h * scale)))
+        drawn_size = _frame_size(w, h, size, scale)
+        if drawn_size != frame.get_size():
+            frame = pygame.transform.scale(frame, drawn_size)
         if flip:
             frame = pygame.transform.flip(frame, True, False)
         if normalize:

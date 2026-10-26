@@ -246,7 +246,6 @@ class Battle:
         self.phase = "player"
         self.message = f"A wild {self.enemy.name} appears!"
         self._queued_attack = False
-        self.luna_attacked = False
         self.nine_lives = False
         self.statuses = {}
         self.inventory = dict(inventory) if inventory is not None else dict(START_INVENTORY)
@@ -273,7 +272,6 @@ class Battle:
             self.message = "Not enough focus to attack!"
             return None
 
-        self.luna_attacked = False
         self.message = ""
         if self._player_acts_first():
             damage = self._luna_attack()
@@ -297,7 +295,6 @@ class Battle:
             self.message = "Not enough focus to attack!"
             return None
 
-        self.luna_attacked = False
         self.message = ""
         self.phase = "enemy"
         luna = {"actor": "luna"}
@@ -338,7 +335,6 @@ class Battle:
 
     def rest(self):
         """Skip the turn to regain focus and HP, then give the turn to the enemy."""
-        self.luna_attacked = False
         gained = min(self.REST_GAIN, self.MAX_FOCUS - self.focus)
         self.focus += gained
         healed = min(self.REST_HEAL, self.player_hp_max - self.player_hp)
@@ -356,7 +352,6 @@ class Battle:
             self.message = f"Not enough focus for {self.INSTINCTS[name]['name']}!"
             return None
 
-        self.luna_attacked = False
         self.message = ""
         self.focus -= self.INSTINCTS[name]["cost"]
         getattr(self, f"_instinct_{name}")()
@@ -386,7 +381,6 @@ class Battle:
 
     def defend(self):
         """Puff up to halve the next incoming hit, then give the turn to the enemy."""
-        self.luna_attacked = False
         apply_status(self.statuses, "puffed")
         self.message = "Luna puffs up, halving the next attack!"
         self.phase = "enemy"
@@ -401,7 +395,6 @@ class Battle:
             self.message = f"No {ITEMS[name]['name']} left!"
             return None
 
-        self.luna_attacked = False
         item = ITEMS[name]
         self.inventory[name] -= 1
         self.message = ""
@@ -471,7 +464,6 @@ class Battle:
     def _luna_attack(self):
         """Resolve Luna's attack: spend focus, then damage unless dodged."""
         self.focus -= self.ATTACK_COST
-        self.luna_attacked = True
         if random.random() < self.dodge_chance(effective_agility(self.enemy.agility, self.enemy.statuses)):
             self._say(f"The {self.enemy.name} dodges Luna's attack!")
             tick_statuses(self.enemy.statuses, "was_attacked")

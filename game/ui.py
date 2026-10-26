@@ -13,13 +13,14 @@ from config import (
 class Button:
     """A clickable button with a hover effect."""
 
+    color = COLOR_BUTTON
+    hover_color = COLOR_BUTTON_HOVER
+
     def __init__(self, x, y, width, height, text, action):
         """Store the button's rect, label, and action id."""
         self.rect = pygame.Rect(x, y, width, height)
         self.text = text
         self.action = action
-        self.color = COLOR_BUTTON
-        self.hover_color = COLOR_BUTTON_HOVER
 
     def draw(self, screen, font, text_color=COLOR_WHITE):
         """Draw the button with a hover highlight and centered text."""
