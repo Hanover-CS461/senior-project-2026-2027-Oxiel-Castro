@@ -298,12 +298,13 @@ class Game:
 
     def _battle_background_for(self, name):
         """Return the scaled background for the upcoming fight at a building."""
-        if name is None or self._is_final_boss(name):
+        if name is None:
             return self.assets.battle_bg
         spec = BATTLE_BACKGROUNDS.get(name)
         if not spec:
             return self.assets.battle_bg
-        key = "boss" if self.run_state.stage.get(name, 0) >= 1 else "guard"
+        stage = self.run_state.stage.get(name, 0)
+        key = "guard" if stage == 0 else "boss" if stage == 1 else "final"
         return self.assets.battle_backgrounds.get(spec.get(key), self.assets.battle_bg)
 
     def _start_battle_for(self, name):

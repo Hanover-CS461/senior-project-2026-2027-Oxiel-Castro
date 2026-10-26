@@ -39,6 +39,7 @@ CAMPUS_IMAGE = "game/assets/images/backgrounds/campus.png"
 LUNA_SHEET = "game/assets/images/sprites/Luna2.png"
 VICTORY_IMAGE = "game/assets/images/backgrounds/w_end.2.png"
 BATTLE_BG = "game/assets/images/battle/battle_bg.png"
+FINAL_BOSS_BG = "game/assets/images/battle/final boss.png"
 
 # Music track paths, grouped so every track lives in one place.
 MUSIC_TITLE = "game/assets/music/POL-chubby-cat.wav"
@@ -62,15 +63,28 @@ START_INVENTORY = {"wet_food": 3, "catnip": 2, "milk": 1}
 DAMAGE_PER_TIER = 2
 
 # Per-building battle backgrounds, keyed by building name. "guard" is the
-# first fight, "boss" the second. Any building not listed uses BATTLE_BG.
+# first fight, "boss" the second, "final" the Campus Guardian. Any role a
+# building doesn't list uses BATTLE_BG.
 BATTLE_BACKGROUNDS = {
     "Lynn Hall": {
         "guard": "game/assets/images/battle/soda_machine2.0.png",
         "boss": "game/assets/images/battle/skiadas_class2.0.png",
+        "final": FINAL_BOSS_BG,
     },
     "Horner": {
         "guard": "game/assets/images/battle/indoor track2.0.png",
         "boss": "game/assets/images/battle/gym2.0.png",
+        "final": FINAL_BOSS_BG,
+    },
+    "KP": {
+        "guard": "game/assets/images/battle/kp lobby2.0.png",
+        "boss": "game/assets/images/battle/kp basement2.0.png",
+        "final": FINAL_BOSS_BG,
+    },
+    "CC": {
+        "guard": "game/assets/images/battle/cc2.0.png",
+        "boss": "game/assets/images/battle/ug2.0.png",
+        "final": FINAL_BOSS_BG,
     },
 }
 
