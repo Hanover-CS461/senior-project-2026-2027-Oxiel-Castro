@@ -13,7 +13,7 @@ SCENE_LINE_TIME = 3000
 
 SCENES = [
     {
-        "image": "game/assets/images/scene_1.1.png",
+        "image": "game/assets/images/backgrounds/scene_1.1.png",
         "lines": [
             "Luna slept curled on her cat tree, warm in the afternoon light.",
             "Her human, Oxiel, had gone out on one of his usual adventures.",
@@ -21,7 +21,7 @@ SCENES = [
         ],
     },
     {
-        "image": "game/assets/images/scene_2.png",
+        "image": "game/assets/images/backgrounds/scene_2.png",
         "lines": [
             "When Luna woke, the light was gone and the house was quiet.",
             "No footsteps. No jingling keys. No dinner.",
@@ -29,7 +29,7 @@ SCENES = [
         ],
     },
     {
-        "image": "game/assets/images/Sigma Chi House and Wandering Cat.png",
+        "image": "game/assets/images/backgrounds/Sigma Chi House and Wandering Cat.png",
         "lines": [
             "Luna had never left the comfort of her building. The campus was a mystery.",
             "But Oxiel might be in danger, or simply late. Either way, she had to know.",
