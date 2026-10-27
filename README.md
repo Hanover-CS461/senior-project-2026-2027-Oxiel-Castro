@@ -47,6 +47,7 @@ All menus are mouse-driven.
 | `game/config.py` | Constants, colors, and asset paths in one place |
 | `game/assets.py`, `game/sprites.py` | Asset loading, frame cropping, and caching |
 | `game/ui.py` | Buttons, bars, and text helpers |
+| `game/effects.py` | Floating numbers, particles, screen shake, and hit flashes |
 | `game/story.py`, `game/messages.py` | Intro scenes and paged battle narration |
 | `game/transitions.py`, `game/music.py` | Screen transitions and audio |
 | `tests/` | Unit tests for the battle logic |

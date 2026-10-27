@@ -1,5 +1,4 @@
 import asyncio
-import random
 import threading
 
 import pygame
@@ -32,6 +31,7 @@ from config import (
     WALK_TIME,
     WINDOW_SIZE,
 )
+from effects import DODGE_TIME, Effects
 from messages import MessageLog
 from music import Music
 from run import BUILDINGS, DIFFICULTY_TIERS, Run
@@ -42,22 +42,13 @@ from ui import (
     draw_bar,
     draw_disabled_button,
     draw_outlined_text,
-    flash_surface,
     wrap_lines,
 )
 
-# Hit-feedback timing and sizing.
+# Hit-feedback timing and sizing. Effect-specific tuning lives in effects.py.
 HURT_TIME = 260
 RECOIL = 16
-POPUP_TIME = 750
-POPUP_RISE = 54
-SHAKE_TIME = 220
-SHAKE_MAG = 6
 TWEEN_RATE = 0.22
-DODGE_TIME = 300
-DODGE_HOP = 26
-HEAL_SPARKLES = 12
-SPARKLE_TIME = 650
 DEATH_TIME = 1000
 
 # Status aura colors, in display priority order.
@@ -126,14 +117,11 @@ class Game:
         self.luna_hurt_until = 0
         self.enemy_dodge_until = 0
         self.luna_dodge_until = 0
-        self.popups = []
-        self.particles = []
         self.enemy_hp_display = 0.0
         self.luna_hp_display = 0.0
         self.focus_display = 0.0
-        self.shake_until = 0
         self.death_start = None
-        self._flash_cache = {}
+        self.effects = Effects()
 
         self.buttons = [
             Button(300, 250, 200, 60, "Start", "start"),
@@ -478,30 +466,15 @@ class Game:
         if menu["back"]:
             self.back_button.draw(self.screen, self.small_font)
         self._draw_tooltip(hovered)
-        self._draw_particles(now)
-        self._draw_popups(now)
-        self._apply_shake(now)
+        self.effects.draw_particles(self.screen, now)
+        self.effects.draw_popups(self.screen, self.small_font, now)
+        self.effects.apply_shake(self.screen, now)
 
     def _update_hp_tween(self):
         """Ease the drawn bars toward their true values so changes are visible."""
         self.luna_hp_display += (self.battle.player_hp - self.luna_hp_display) * TWEEN_RATE
         self.enemy_hp_display += (self.battle.enemy.hp - self.enemy_hp_display) * TWEEN_RATE
         self.focus_display += (self.battle.focus - self.focus_display) * TWEEN_RATE
-
-    def _flash(self, frame, color):
-        """Return a cached solid-color silhouette of a frame."""
-        key = (id(frame), color)
-        surf = self._flash_cache.get(key)
-        if surf is None:
-            surf = flash_surface(frame, color)
-            self._flash_cache[key] = surf
-        return surf
-
-    def _blit_flash(self, frame, pos, color, alpha):
-        """Blit a solid-color silhouette of a sprite over it as a tint/flash."""
-        flash = self._flash(frame, color)
-        flash.set_alpha(max(0, min(255, int(alpha))))
-        self.screen.blit(flash, pos)
 
     def _status_aura(self, frame, pos, statuses, now):
         """Draw a pulsing colored aura for a combatant's active statuses."""
@@ -512,15 +485,7 @@ class Game:
             return
         t = (now % 600) / 600
         alpha = 35 + int(35 * (1 - abs(2 * t - 1)))
-        self._blit_flash(frame, pos, color, alpha)
-
-    def _dodge_offset(self, now, until, direction):
-        """Return (dx, dy) for a quick side-hop while dodging."""
-        if now >= until:
-            return 0, 0
-        progress = (DODGE_TIME - (until - now)) / DODGE_TIME
-        phase = 1 - abs(2 * progress - 1)
-        return direction * int(DODGE_HOP * phase), -int(DODGE_HOP * 0.5 * phase)
+        self.effects.blit_flash(self.screen, frame, pos, color, alpha)
 
     def _draw_luna(self, now):
         """Draw Luna with her dodge hop, status aura, and hurt flash."""
@@ -533,12 +498,15 @@ class Game:
         x, y = self.luna_x, 340
         if now < self.luna_hurt_until:
             x -= int(RECOIL * (self.luna_hurt_until - now) / HURT_TIME)
-        dx, dy = self._dodge_offset(now, self.luna_dodge_until, -1)
+        dx, dy = self.effects.dodge_offset(now, self.luna_dodge_until, -1)
         x, y = x + dx, y + dy
         self.screen.blit(frame, (x, y))
         self._status_aura(frame, (x, y), self.battle.statuses, now)
         if now < self.luna_hurt_until:
-            self._blit_flash(frame, (x, y), COLOR_WHITE, 210 * (self.luna_hurt_until - now) / HURT_TIME)
+            self.effects.blit_flash(
+                self.screen, frame, (x, y), COLOR_WHITE,
+                210 * (self.luna_hurt_until - now) / HURT_TIME,
+            )
 
     def _draw_enemy(self, now):
         """Draw the enemy with dodge hop, status aura, flash, and death."""
@@ -552,14 +520,17 @@ class Game:
         y = 360 - frame.get_height() // 2
         if now < self.enemy_hurt_until:
             x += int(RECOIL * (self.enemy_hurt_until - now) / HURT_TIME)
-        dx, dy = self._dodge_offset(now, self.enemy_dodge_until, 1)
+        dx, dy = self.effects.dodge_offset(now, self.enemy_dodge_until, 1)
         x, y = x + dx, y + dy
         self.screen.blit(frame, (x, y))
         if self.enemy_attack_state == "attacking":
-            self._blit_flash(frame, (x, y), COLOR_HEAVY, 110)
+            self.effects.blit_flash(self.screen, frame, (x, y), COLOR_HEAVY, 110)
         self._status_aura(frame, (x, y), self.battle.enemy.statuses, now)
         if now < self.enemy_hurt_until:
-            self._blit_flash(frame, (x, y), COLOR_WHITE, 210 * (self.enemy_hurt_until - now) / HURT_TIME)
+            self.effects.blit_flash(
+                self.screen, frame, (x, y), COLOR_WHITE,
+                210 * (self.enemy_hurt_until - now) / HURT_TIME,
+            )
 
     def _enemy_dying(self, now):
         """Return True while the defeated enemy's death animation plays."""
@@ -577,59 +548,13 @@ class Game:
             x = self.enemy_x - frame.get_width() // 2
             y = 360 - frame.get_height() // 2
             self.screen.blit(frame, (x, y))
-            self._blit_flash(frame, (x, y), COLOR_WHITE, 220)
+            self.effects.blit_flash(self.screen, frame, (x, y), COLOR_WHITE, 220)
             return
         q = (progress - 0.18) / 0.82
         img = pygame.transform.rotate(frame, -70 * q)
         img.set_alpha(int(255 * (1 - q)))
         feet_y = 360 + frame.get_height() // 2 + int(12 * q)
         self.screen.blit(img, img.get_rect(midbottom=(self.enemy_x, feet_y)))
-
-    def _draw_popups(self, now):
-        """Draw and expire floating damage numbers."""
-        alive = []
-        for popup in self.popups:
-            age = now - popup["start"]
-            if age > POPUP_TIME:
-                continue
-            frac = age / POPUP_TIME
-            y = popup["y"] - int(POPUP_RISE * frac)
-            alpha = int(255 * (1 - frac))
-            shadow = self.small_font.render(popup["text"], True, COLOR_BLACK)
-            shadow.set_alpha(alpha)
-            text = self.small_font.render(popup["text"], True, popup["color"])
-            text.set_alpha(alpha)
-            self.screen.blit(shadow, (popup["x"] + 2, y + 2))
-            self.screen.blit(text, (popup["x"], y))
-            alive.append(popup)
-        self.popups = alive
-
-    def _draw_particles(self, now):
-        """Draw and expire the little sparkle particles (heals)."""
-        alive = []
-        for p in self.particles:
-            age = now - p["start"]
-            if age > SPARKLE_TIME:
-                continue
-            frac = age / SPARKLE_TIME
-            x = p["x"] + p["vx"] * age / 1000.0
-            y = p["y"] + p["vy"] * age / 1000.0
-            alpha = int(255 * (1 - frac))
-            size = 3
-            spark = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
-            pygame.draw.circle(spark, (*p["color"], alpha), (size, size), size)
-            self.screen.blit(spark, (int(x) - size, int(y) - size))
-            alive.append(p)
-        self.particles = alive
-
-    def _apply_shake(self, now):
-        """Jitter the whole frame briefly after a heavy hit."""
-        if now >= self.shake_until:
-            return
-        mag = SHAKE_MAG if (self.shake_until - now) > SHAKE_TIME // 2 else SHAKE_MAG // 2
-        snap = self.screen.copy()
-        self.screen.fill(COLOR_BLACK)
-        self.screen.blit(snap, (random.randint(-mag, mag), random.randint(-mag, mag)))
 
     def _battle_menu(self):
         """Return the active battle menu: its buttons and draw/click behavior."""
@@ -930,10 +855,10 @@ class Game:
                 menu["activate"](button)
                 healed = self.battle.player_hp - hp_before
                 if healed > 0:
-                    self._spawn_heal(healed)
+                    self.effects.spawn_heal(healed, self.luna_x)
                 gained = self.battle.focus - focus_before
                 if gained > 0:
-                    self._spawn_focus(gained)
+                    self.effects.spawn_focus(gained, self.luna_x)
                 if menu["back"]:
                     self.submenu = None
         if not self.turn_active and self.battle.phase == "enemy":
@@ -965,9 +890,7 @@ class Game:
         self.luna_hurt_until = 0
         self.enemy_dodge_until = 0
         self.luna_dodge_until = 0
-        self.popups = []
-        self.particles = []
-        self.shake_until = 0
+        self.effects.reset()
         self.death_start = None
         self.enemy_hp_display = float(self.battle.enemy.hp)
         self.luna_hp_display = float(self.battle.player_hp)
@@ -1002,7 +925,10 @@ class Game:
             if self.battle.won:
                 if self.death_start is None:
                     self.death_start = now
-                    self._spawn_death_dust()
+                    frames = self.assets.enemy_frames[self.battle.enemy.sprite]
+                    self.effects.spawn_death_dust(
+                        self.enemy_x, 360 + frames[0].get_height() // 2
+                    )
                 if (not self._luna_busy() and not self._enemy_busy()
                         and now - self.death_start >= DEATH_TIME):
                     self.turn_active = False
@@ -1095,68 +1021,21 @@ class Game:
         now = pygame.time.get_ticks()
         if on_enemy:
             self.enemy_hurt_until = now + HURT_TIME
-            self._spawn_popup(f"-{damage}", self.enemy_x - 6, 300, COLOR_HEAVY)
+            self.effects.spawn_popup(f"-{damage}", self.enemy_x - 6, 300, COLOR_HEAVY)
         else:
             self.luna_hurt_until = now + HURT_TIME
-            self._spawn_popup(f"-{damage}", self.luna_x + 46, 300, COLOR_HP_BAR)
+            self.effects.spawn_popup(f"-{damage}", self.luna_x + 46, 300, COLOR_HP_BAR)
         if heavy:
-            self.shake_until = now + SHAKE_TIME
+            self.effects.shake(now)
 
     def _dodge(self, who, now):
         """React to a dodged attack: hop the target aside and show MISS."""
         if who == "enemy":
             self.enemy_dodge_until = now + DODGE_TIME
-            self._spawn_popup("MISS", self.enemy_x - 18, 300, COLOR_WHITE)
+            self.effects.spawn_popup("MISS", self.enemy_x - 18, 300, COLOR_WHITE)
         else:
             self.luna_dodge_until = now + DODGE_TIME
-            self._spawn_popup("MISS", self.luna_x + 40, 300, COLOR_WHITE)
-
-    def _spawn_heal(self, amount):
-        """Show a heal number and a burst of green sparkles over Luna."""
-        self._spawn_gain(amount, (80, 230, 120), 300)
-
-    def _spawn_focus(self, amount):
-        """Show a focus number and a burst of blue sparkles over Luna."""
-        self._spawn_gain(amount, (90, 170, 255), 266)
-
-    def _spawn_gain(self, amount, color, y):
-        """Spawn a +N popup and a matching burst of sparkles over Luna."""
-        now = pygame.time.get_ticks()
-        self._spawn_popup(f"+{amount}", self.luna_x + 36, y, color)
-        for _ in range(HEAL_SPARKLES):
-            self.particles.append({
-                "x": self.luna_x + random.randint(0, 120),
-                "y": 340 + random.randint(0, 80),
-                "vx": random.uniform(-25, 25),
-                "vy": random.uniform(-80, -30),
-                "start": now,
-                "color": color,
-            })
-
-    def _spawn_death_dust(self):
-        """Puff of dust at the enemy's feet when it collapses."""
-        now = pygame.time.get_ticks()
-        frames = self.assets.enemy_frames[self.battle.enemy.sprite]
-        feet_y = 360 + frames[0].get_height() // 2
-        for _ in range(12):
-            self.particles.append({
-                "x": self.enemy_x + random.randint(-30, 30),
-                "y": feet_y - random.randint(0, 10),
-                "vx": random.uniform(-45, 45),
-                "vy": random.uniform(-55, -15),
-                "start": now,
-                "color": (185, 170, 145),
-            })
-
-    def _spawn_popup(self, text, x, y, color):
-        """Add a floating text popup above a combatant."""
-        self.popups.append({
-            "text": text,
-            "x": x,
-            "y": y,
-            "start": pygame.time.get_ticks(),
-            "color": color,
-        })
+            self.effects.spawn_popup("MISS", self.luna_x + 40, 300, COLOR_WHITE)
 
     def frame(self):
         """Process input and draw one frame of the game."""
