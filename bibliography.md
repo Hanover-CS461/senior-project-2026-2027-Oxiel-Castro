@@ -54,14 +54,21 @@
     - It's a development resource — the sprite sheets for Luna were sourced from it.
     - The site hosts thousands of asset packs, searchable and filterable by price and license, which helped me find sprite sheets that fit Luna's style.
     - In-game assets sourced from itch.io:
-      - `game/assets/Luna.png` — Luna's sprite sheet (idle, walk, and attack frames)
-      - `game/assets/enemies/fly.png` — the fly enemy's sprite sheet
+      - `game/assets/images/sprites/Luna2.png` — Luna's sprite sheet (idle, walk, and attack frames)
+      - `game/assets/images/enemies/fly.png` — the fly enemy's sprite sheet
   - [OpenGameArt](https://opengameart.org/)
     - Is a primary source — a community repository of free game assets (2D art, sprites, textures, music, and sound effects) contributed by artists under open licenses.
     - It's a development resource — the background, font, and music for Luna were sourced from it.
     - The site hosts dedicated categories for 2D art, sound effects, and music, all searchable and filterable by license (CC0, OGA-BY, CC-BY, CC-BY-SA, Public Domain, and others).
     - The license filtering helped me find CC0 assets I can use without attribution requirements, keeping Luna's asset credits clean and documented here.
     - In-game assets sourced from OpenGameArt:
-      - `game/assets/background.png` — the battle background
+      - `game/assets/images/backgrounds/background.png` — the battle background
       - `game/assets/Fonts/PixelPurl.ttf` — the in-game font
-      - `game/assets/music/POL-chubby-cat.wav` — the looping background track
+      - Music tracks (all sourced from OpenGameArt):
+        - `game/assets/music/POL-chubby-cat.wav` — title screen theme
+        - `game/assets/music/campus_m.mp3` — intro and campus map theme
+        - `game/assets/music/start_battle_m.mp3` — battle-start sting
+        - `game/assets/music/battle_m.mp3` — regular battle theme
+        - `game/assets/music/guardian_battle_m.WAV` — Campus Guardian (final boss) theme
+        - `game/assets/music/Victory.mp3` — victory screen theme
+        - `game/assets/music/game_over.mp3` — defeat screen theme
