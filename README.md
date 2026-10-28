@@ -41,8 +41,9 @@ All menus are mouse-driven.
 
 | Path | What it does |
 | --- | --- |
-| `game/main.py` | Game loop, screen routing, input, and all drawing |
+| `game/main.py` | Game loop, screen routing, input, and the menu/map/intro/end screens |
 | `game/battle.py` | Pure battle logic — a state machine with no pygame dependency |
+| `game/battle_view.py` | Battle screen: sprites, bars, menus, turn animation, and narration |
 | `game/run.py` | Seeded run state: buildings, enemies, rewards |
 | `game/config.py` | Constants, colors, and asset paths in one place |
 | `game/assets.py`, `game/sprites.py` | Asset loading, frame cropping, and caching |
@@ -50,10 +51,11 @@ All menus are mouse-driven.
 | `game/effects.py` | Floating numbers, particles, screen shake, and hit flashes |
 | `game/story.py`, `game/messages.py` | Intro scenes and paged battle narration |
 | `game/transitions.py`, `game/music.py` | Screen transitions and audio |
-| `tests/` | Unit tests for the battle logic |
+| `tests/` | Unit tests for the battle, run, and story logic |
 
 The split is deliberate: `battle.py` imports nothing from pygame, so the combat
-rules can be tested without opening a window.
+rules can be tested without opening a window, while `battle_view.py` owns only
+how a fight is presented and controlled.
 
 ```bash
 python3 -m unittest discover -s tests
