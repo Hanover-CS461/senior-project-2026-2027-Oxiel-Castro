@@ -80,6 +80,8 @@ class Game:
         self.map_arrive_timer = 0
         self.map_walk_index = 0
         self.map_walk_timer = 0
+        self.anim_index = 0
+        self.anim_timer = 0
         self.pending_battle = None
         self.found_notice_start = None
         self.run_state = None
@@ -381,6 +383,8 @@ class Game:
         self.map_luna_pos = pygame.Vector2(400, 70)
         self.map_move = None
         self.map_arrive_timer = 0
+        self.anim_index = 0
+        self.anim_timer = 0
         self.pending_battle = None
         self.found_notice_start = None
         self.music.play_campus()
