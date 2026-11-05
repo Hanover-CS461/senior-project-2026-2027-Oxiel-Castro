@@ -27,12 +27,8 @@ class StoryTest(TestCase):
 
     def test_lines_replace_over_time(self):
         story = Story()
-        self.assertEqual(
-            story.visible_line(SCENE_LINE_TIME), SCENES[0]["lines"][1]
-        )
-        self.assertEqual(
-            story.visible_line(SCENE_LINE_TIME * 2), SCENES[0]["lines"][2]
-        )
+        self.assertEqual(story.visible_line(SCENE_LINE_TIME), SCENES[0]["lines"][1])
+        self.assertEqual(story.visible_line(SCENE_LINE_TIME * 2), SCENES[0]["lines"][2])
 
     def test_last_line_sticks(self):
         story = Story()
@@ -49,9 +45,7 @@ class StoryTest(TestCase):
     def test_snap_shows_final_line(self):
         story = Story()
         self.assertTrue(story.reveal_done(story.snap()))
-        self.assertEqual(
-            story.visible_line(story.snap()), SCENES[0]["lines"][-1]
-        )
+        self.assertEqual(story.visible_line(story.snap()), SCENES[0]["lines"][-1])
 
     def test_advance_walks_scenes_then_finishes(self):
         story = Story()

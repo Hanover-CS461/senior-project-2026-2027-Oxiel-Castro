@@ -188,7 +188,9 @@ class Enemy:
 
     def choose_intent(self):
         """Weighted-random pick of the enemy's next move."""
-        self.intent = random.choices(self.moves, weights=[m["weight"] for m in self.moves])[0]
+        self.intent = random.choices(
+            self.moves, weights=[m["weight"] for m in self.moves]
+        )[0]
 
 
 class Battle:
@@ -239,7 +241,9 @@ class Battle:
         self.player_hp_max = player_hp_max
         self.focus = focus
         self.agility = agility
-        self.enemy = enemy if enemy is not None else Enemy("Fly", 80, 5, ENEMY_MOVES["fly"])
+        self.enemy = (
+            enemy if enemy is not None else Enemy("Fly", 80, 5, ENEMY_MOVES["fly"])
+        )
         self.enemy.choose_intent()
         self.over = False
         self.won = False
@@ -248,7 +252,9 @@ class Battle:
         self._queued_attack = False
         self.nine_lives = False
         self.statuses = {}
-        self.inventory = dict(inventory) if inventory is not None else dict(START_INVENTORY)
+        self.inventory = (
+            dict(inventory) if inventory is not None else dict(START_INVENTORY)
+        )
 
     @staticmethod
     def dodge_chance(agility):
@@ -444,7 +450,9 @@ class Battle:
         """Carry out the enemy's chosen move for the round."""
         move = self.enemy.intent
         if "status" in move:
-            target = self.statuses if move["target"] == "player" else self.enemy.statuses
+            target = (
+                self.statuses if move["target"] == "player" else self.enemy.statuses
+            )
             apply_status(target, move["status"])
             detail = move.get("message", "")
             self._say(f"The {self.enemy.name} uses {move['name']}! {detail}".strip())
@@ -464,7 +472,9 @@ class Battle:
     def _luna_attack(self):
         """Resolve Luna's attack: spend focus, then damage unless dodged."""
         self.focus -= self.ATTACK_COST
-        if random.random() < self.dodge_chance(effective_agility(self.enemy.agility, self.enemy.statuses)):
+        if random.random() < self.dodge_chance(
+            effective_agility(self.enemy.agility, self.enemy.statuses)
+        ):
             self._say(f"The {self.enemy.name} dodges Luna's attack!")
             tick_statuses(self.enemy.statuses, "was_attacked")
             return 0
@@ -484,7 +494,9 @@ class Battle:
 
     def _enemy_attack(self, move):
         """Resolve the enemy's damage move, unless Luna dodges or Nine Lives saves her."""
-        if random.random() < self.dodge_chance(effective_agility(self.agility, self.statuses)):
+        if random.random() < self.dodge_chance(
+            effective_agility(self.agility, self.statuses)
+        ):
             self._say(f"Luna dodges the {self.enemy.name}'s attack!")
             tick_statuses(self.statuses, "was_attacked")
             return
@@ -497,7 +509,9 @@ class Battle:
             self._say("Nine Lives saves Luna from certain death!")
         else:
             self.player_hp = max(0, self.player_hp - damage)
-            self._say(f"The {self.enemy.name}'s {move['name']} hits you for {damage} damage!")
+            self._say(
+                f"The {self.enemy.name}'s {move['name']} hits you for {damage} damage!"
+            )
             if self.player_hp == 0:
                 self.over = True
                 self.won = False

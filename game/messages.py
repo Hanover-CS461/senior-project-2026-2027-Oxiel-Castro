@@ -41,7 +41,7 @@ class MessageLog:
             return
         self._last = message
         sentences = [s for s in re.split(r"(?<=[.!])\s+", message) if s]
-        lines = wrap_lines(sentences, self.font, MESSAGE_MAX_WIDTH)[-self.max_lines:]
+        lines = wrap_lines(sentences, self.font, MESSAGE_MAX_WIDTH)[-self.max_lines :]
         if lines and lines != self._lines and lines != self._queue[-1:]:
             self._queue.append(lines)
 

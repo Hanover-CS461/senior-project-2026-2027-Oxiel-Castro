@@ -2,7 +2,6 @@ import asyncio
 import threading
 
 import pygame
-
 from assets import Assets
 from battle import ITEMS
 from battle_view import BattleView
@@ -139,7 +138,9 @@ class Game:
             button.draw(self.screen, self.font)
         draw_outlined_text(self.screen, self.small_font, "Seed (optional):", (20, 500))
         pygame.draw.rect(self.screen, COLOR_BUTTON, self.seed_box, border_radius=5)
-        pygame.draw.rect(self.screen, COLOR_BLACK, self.seed_box, width=3, border_radius=5)
+        pygame.draw.rect(
+            self.screen, COLOR_BLACK, self.seed_box, width=3, border_radius=5
+        )
         label = self.seed_text if self.seed_text else "random"
         seed_surface = self.small_font.render(label, True, COLOR_WHITE)
         self.screen.blit(seed_surface, (self.seed_box.x + 8, self.seed_box.y + 4))
@@ -149,13 +150,16 @@ class Game:
         self.screen.blit(self.assets.background, (0, 0))
         panel = pygame.Surface((300, 345), pygame.SRCALPHA)
         pygame.draw.rect(panel, (0, 0, 0, 165), panel.get_rect(), border_radius=14)
-        pygame.draw.rect(panel, (255, 255, 255, 90), panel.get_rect(), width=3,
-                         border_radius=14)
+        pygame.draw.rect(
+            panel, (255, 255, 255, 90), panel.get_rect(), width=3, border_radius=14
+        )
         self.screen.blit(panel, (250, 158))
         label = "Choose difficulty"
         width = self.title_font.size(label)[0]
         draw_outlined_text(
-            self.screen, self.title_font, label,
+            self.screen,
+            self.title_font,
+            label,
             ((WINDOW_SIZE[0] - width) // 2, 88),
         )
         for button in self.difficulty_buttons:
@@ -175,7 +179,7 @@ class Game:
                 self.run_state.found_human
                 and button.action == self.run_state.human_building
             ):
-                button.draw(self.screen, self.small_font, text_color=COLOR_TITLE)
+                button.draw(self.screen, self.small_font, text_color=COLOR_FOUND)
             else:
                 button.draw(self.screen, self.small_font)
         if (
@@ -185,30 +189,43 @@ class Game:
             notice = "You found Oxiel - the Campus Guardian stands in the way."
             width = self.small_font.size(notice)[0]
             draw_outlined_text(
-                self.screen, self.small_font, notice,
-                ((WINDOW_SIZE[0] - width) // 2, 105), color=COLOR_FOUND,
+                self.screen,
+                self.small_font,
+                notice,
+                ((WINDOW_SIZE[0] - width) // 2, 105),
+                color=COLOR_FOUND,
             )
         draw_outlined_text(
-            self.screen, self.small_font,
-            f"Seed: {self.run_state.seed}", (40, 500),
+            self.screen,
+            self.small_font,
+            f"Seed: {self.run_state.seed}",
+            (40, 500),
         )
         draw_outlined_text(
-            self.screen, self.small_font,
+            self.screen,
+            self.small_font,
             f"HP {self.run_state.player_hp}/{self.run_state.player_hp_max}   Focus {self.run_state.focus}",
             (40, 540),
         )
         if self.run_state.last_reward:
             draw_outlined_text(
-                self.screen, self.small_font,
+                self.screen,
+                self.small_font,
                 f"Reward: +1 {ITEMS[self.run_state.last_reward]['name']}",
-                (40, 570), color=COLOR_TITLE,
+                (40, 570),
+                color=COLOR_TITLE,
             )
         if self.map_move is not None:
             frame = self.assets.map_walk_frames[self.map_walk_index]
         else:
             frame = self.assets.map_idle_frames[self.anim_index]
-        self.screen.blit(frame, (self.map_luna_pos.x - frame.get_width() // 2,
-                                 self.map_luna_pos.y - frame.get_height() // 2))
+        self.screen.blit(
+            frame,
+            (
+                self.map_luna_pos.x - frame.get_width() // 2,
+                self.map_luna_pos.y - frame.get_height() // 2,
+            ),
+        )
 
     def _battle_background_for(self, name):
         """Return the scaled background for the upcoming fight at a building."""
@@ -243,14 +260,19 @@ class Game:
             progress = min(1.0, (now - start_time) / duration)
             if now - self.map_walk_timer > 90:
                 self.map_walk_timer = now
-                self.map_walk_index = (self.map_walk_index + 1) % len(self.assets.map_walk_frames)
+                self.map_walk_index = (self.map_walk_index + 1) % len(
+                    self.assets.map_walk_frames
+                )
             self.map_luna_pos = start.lerp(end, progress)
             if progress >= 1.0:
                 self.map_move = None
                 self.map_arrive_timer = now
                 self.music.play_battle(boss=self._is_final_boss(self.pending_battle))
             return
-        if self.pending_battle is not None and now - self.map_arrive_timer > MAP_BATTLE_DELAY:
+        if (
+            self.pending_battle is not None
+            and now - self.map_arrive_timer > MAP_BATTLE_DELAY
+        ):
             name, self.pending_battle = self.pending_battle, None
             self.transitions.start_spiral(
                 lambda: self.transitions.start_wipe(
@@ -272,7 +294,9 @@ class Game:
             self.screen.blit(background, (0, 0))
         text_w = self.title_font.size(message)[0]
         draw_outlined_text(
-            self.screen, self.title_font, message,
+            self.screen,
+            self.title_font,
+            message,
             ((WINDOW_SIZE[0] - text_w) // 2, 240),
         )
         self.menu_button.draw(self.screen, self.font)
@@ -291,7 +315,9 @@ class Game:
             for part in wrapped:
                 width = self.small_font.size(part)[0]
                 draw_outlined_text(
-                    self.screen, self.small_font, part,
+                    self.screen,
+                    self.small_font,
+                    part,
                     ((WINDOW_SIZE[0] - width) // 2, y),
                 )
                 y += 36
@@ -299,8 +325,11 @@ class Game:
             hint = "click to continue"
             width = self.small_font.size(hint)[0]
             draw_outlined_text(
-                self.screen, self.small_font, hint,
-                ((WINDOW_SIZE[0] - width) // 2, 545), color=COLOR_HINT,
+                self.screen,
+                self.small_font,
+                hint,
+                ((WINDOW_SIZE[0] - width) // 2, 545),
+                color=COLOR_HINT,
             )
         self.skip_button.draw(self.screen, self.small_font)
 
@@ -328,6 +357,7 @@ class Game:
 
     def _advance_intro(self):
         """Fade to the next scene, or to the map after the final scene."""
+
         def at_black():
             if not self.story.advance():
                 self.state = "map"
@@ -402,7 +432,9 @@ class Game:
         if self.map_move is not None:
             return
         for button in self.map_buttons:
-            if button.rect.collidepoint(pos) and not self.run_state.is_cleared(button.action):
+            if button.rect.collidepoint(pos) and not self.run_state.is_cleared(
+                button.action
+            ):
                 target_y = button.rect.centery + 50
                 if target_y > WINDOW_SIZE[1] - 30:
                     target_y = button.rect.centery - 50
@@ -457,7 +489,11 @@ class Game:
                     self.seed_text += event.unicode
             if event.type == pygame.KEYDOWN and self.state == "intro":
                 if not self.transitions.fade_active:
-                    if event.key in (pygame.K_SPACE, pygame.K_RETURN, pygame.K_KP_ENTER):
+                    if event.key in (
+                        pygame.K_SPACE,
+                        pygame.K_RETURN,
+                        pygame.K_KP_ENTER,
+                    ):
                         self._intro_advance()
                     elif event.key == pygame.K_ESCAPE:
                         self._skip_intro()

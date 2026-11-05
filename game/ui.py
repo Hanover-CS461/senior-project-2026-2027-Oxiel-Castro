@@ -1,5 +1,4 @@
 import pygame
-
 from config import (
     COLOR_BLACK,
     COLOR_BUTTON,
@@ -74,8 +73,9 @@ def draw_bar(screen, font, x, y, width, height, value, max_value, color, label=N
         draw_outlined_text(screen, font, label, (x, y - 26))
 
 
-def draw_outlined_text(screen, font, text, pos, color=COLOR_WHITE, outline=COLOR_BLACK,
-                       backing=True):
+def draw_outlined_text(
+    screen, font, text, pos, color=COLOR_WHITE, outline=COLOR_BLACK, backing=True
+):
     """Draw text with an outline and, by default, a translucent black backing."""
     text_w, text_h = font.size(text)
     pad_x, pad_y = 8, 4
@@ -85,7 +85,16 @@ def draw_outlined_text(screen, font, text, pos, color=COLOR_WHITE, outline=COLOR
     base = font.render(text, True, color)
     mask = font.render(text, True, outline)
     x, y = pad_x, pad_y
-    for dx, dy in ((-1, -1), (0, -1), (1, -1), (-1, 0), (1, 0), (-1, 1), (0, 1), (1, 1)):
+    for dx, dy in (
+        (-1, -1),
+        (0, -1),
+        (1, -1),
+        (-1, 0),
+        (1, 0),
+        (-1, 1),
+        (0, 1),
+        (1, 1),
+    ):
         box.blit(mask, (x + dx, y + dy))
     box.blit(base, (x, y))
     screen.blit(box, pos)

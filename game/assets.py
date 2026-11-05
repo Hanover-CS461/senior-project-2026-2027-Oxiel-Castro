@@ -5,7 +5,6 @@ can focus on state and input. Scaled frames are built once at startup.
 """
 
 import pygame
-
 from config import (
     ATTACK_FRAMES,
     BACKGROUND_IMAGE,
@@ -42,8 +41,11 @@ class Assets:
         self.walk_frames = load_frames(LUNA_SHEET, WALK_FRAMES, scale=5)
         self.enemy_frames = {
             key: load_frames(
-                spec["path"], spec["frames"], scale=spec["scale"],
-                flip=(key in ("fly", "snake")), normalize=True,
+                spec["path"],
+                spec["frames"],
+                scale=spec["scale"],
+                flip=(key in ("fly", "snake")),
+                normalize=True,
             )
             for key, spec in ENEMY_SPRITES.items()
         }
@@ -51,7 +53,9 @@ class Assets:
         self.map_idle_frames = load_frames(LUNA_SHEET, LUNA_FRAMES, scale=2)
         self.map_walk_frames = load_frames(LUNA_SHEET, WALK_FRAMES, scale=2)
 
-        self.defeat_frame = load_frames(LUNA_SHEET, [DEFEAT_FRAME], scale=DEFEAT_SCALE)[0]
+        self.defeat_frame = load_frames(LUNA_SHEET, [DEFEAT_FRAME], scale=DEFEAT_SCALE)[
+            0
+        ]
         self.defeat_background = pygame.Surface(WINDOW_SIZE)
         self.defeat_background.fill(COLOR_END_BG)
         self.defeat_background.blit(

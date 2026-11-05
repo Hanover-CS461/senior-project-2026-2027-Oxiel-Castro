@@ -6,7 +6,6 @@ to the looping battle theme via an end-of-track event.
 """
 
 import pygame
-
 from config import (
     MUSIC_BATTLE,
     MUSIC_BATTLE_START,

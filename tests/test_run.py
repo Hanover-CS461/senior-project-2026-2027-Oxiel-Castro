@@ -9,7 +9,6 @@ from unittest import TestCase
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "game"))
 
-from battle import Battle
 from run import ARCHETYPE_MOVES, BUILDINGS, DIFFICULTY_TIERS, Run
 
 
@@ -128,8 +127,10 @@ class RunTest(TestCase):
             enemy = Run(seed=27, tier=tier).start_battle(name).enemy
             return next(m["damage"] for m in enemy.moves if m["name"] == "Screech")
 
-        self.assertLess(scratch_damage(DIFFICULTY_TIERS["Easy"]),
-                        scratch_damage(DIFFICULTY_TIERS["Hard"]))
+        self.assertLess(
+            scratch_damage(DIFFICULTY_TIERS["Easy"]),
+            scratch_damage(DIFFICULTY_TIERS["Hard"]),
+        )
 
     def test_each_building_has_its_own_moveset(self):
         light_names = {ARCHETYPE_MOVES[b["sprite"]]["light"][0] for b in BUILDINGS}

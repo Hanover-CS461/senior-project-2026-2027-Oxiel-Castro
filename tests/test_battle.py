@@ -12,10 +12,10 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "game"))
 
 from battle import (
-    Battle,
     ENEMY_MOVES,
     ITEMS,
     STATUSES,
+    Battle,
     Enemy,
     apply_status,
     damage_multipliers,
@@ -25,16 +25,35 @@ from battle import (
 
 BUZZ = {"name": "Buzz", "damage": (5, 8), "weight": 55}
 STING = {"name": "Sting", "damage": (11, 15), "weight": 25, "heavy": True}
-HOVER = {"name": "Hover", "weight": 10, "status": "prowl", "target": "self", "message": "its agility is up"}
-IRRITATE = {"name": "Irritate", "weight": 10, "status": "intimidated", "target": "player", "message": "Luna is intimidated"}
+HOVER = {
+    "name": "Hover",
+    "weight": 10,
+    "status": "prowl",
+    "target": "self",
+    "message": "its agility is up",
+}
+IRRITATE = {
+    "name": "Irritate",
+    "weight": 10,
+    "status": "intimidated",
+    "target": "player",
+    "message": "Luna is intimidated",
+}
 
 
 class StatusFrameworkTest(TestCase):
     """Unit tests for the status system: apply, cap, tick, and multipliers."""
 
     def test_all_statuses_defined(self):
-        for key in ("prowl", "riled", "intimidated", "puffed", "night_vision",
-                    "poisoned", "webbed"):
+        for key in (
+            "prowl",
+            "riled",
+            "intimidated",
+            "puffed",
+            "night_vision",
+            "poisoned",
+            "webbed",
+        ):
             self.assertIn(key, STATUSES)
             self.assertIn("name", STATUSES[key])
             self.assertIn("duration", STATUSES[key])
@@ -98,9 +117,13 @@ class StatusFrameworkTest(TestCase):
         statuses = {}
         apply_status(statuses, "night_vision")
         tick_statuses(statuses, "was_attacked")
-        self.assertEqual(statuses["night_vision"].duration, STATUSES["night_vision"]["duration"])
+        self.assertEqual(
+            statuses["night_vision"].duration, STATUSES["night_vision"]["duration"]
+        )
         tick_statuses(statuses, "round_end")
-        self.assertEqual(statuses["night_vision"].duration, STATUSES["night_vision"]["duration"] - 1)
+        self.assertEqual(
+            statuses["night_vision"].duration, STATUSES["night_vision"]["duration"] - 1
+        )
 
     def test_tick_removes_expired(self):
         statuses = {}
@@ -133,7 +156,10 @@ class EnemyAITest(TestCase):
         battle = Battle()
         battle.enemy.intent = BUZZ
         before = battle.player_hp
-        with patch("random.random", return_value=1.0), patch("random.randint", return_value=6):
+        with (
+            patch("random.random", return_value=1.0),
+            patch("random.randint", return_value=6),
+        ):
             battle.enemy_turn()
         self.assertEqual(before - battle.player_hp, 6)
 
@@ -187,7 +213,10 @@ class BattleFlowTest(TestCase):
     def test_attack_spends_focus_and_deals_damage(self):
         battle = Battle()
         battle.enemy.agility = 1
-        with patch("random.random", return_value=1.0), patch("random.randint", return_value=13):
+        with (
+            patch("random.random", return_value=1.0),
+            patch("random.randint", return_value=13),
+        ):
             damage = battle.attack()
         self.assertEqual(damage, 13)
         self.assertEqual(battle.enemy.hp, 67)
@@ -203,12 +232,18 @@ class BattleFlowTest(TestCase):
 
     def test_attack_queued_when_enemy_faster(self):
         battle = Battle()
-        with patch("random.random", return_value=1.0), patch("random.randint", return_value=13):
+        with (
+            patch("random.random", return_value=1.0),
+            patch("random.randint", return_value=13),
+        ):
             self.assertIsNone(battle.attack())
         self.assertTrue(battle._queued_attack)
         self.assertEqual(battle.phase, "enemy")
         battle.enemy.intent = BUZZ
-        with patch("random.random", return_value=1.0), patch("random.randint", return_value=13):
+        with (
+            patch("random.random", return_value=1.0),
+            patch("random.randint", return_value=13),
+        ):
             battle.enemy_turn()
         self.assertEqual(battle.enemy.hp, 67)
 
@@ -260,14 +295,20 @@ class BattleFlowTest(TestCase):
         battle = Battle()
         battle.use_instinct("night_vision")
         self.assertIn("night_vision", battle.statuses)
-        self.assertEqual(battle.statuses["night_vision"].duration, STATUSES["night_vision"]["duration"])
+        self.assertEqual(
+            battle.statuses["night_vision"].duration,
+            STATUSES["night_vision"]["duration"],
+        )
 
     def test_night_vision_ticks_each_round(self):
         battle = Battle()
         battle.use_instinct("night_vision")
         battle.enemy.intent = BUZZ
         battle.enemy_turn()
-        self.assertEqual(battle.statuses["night_vision"].duration, STATUSES["night_vision"]["duration"] - 1)
+        self.assertEqual(
+            battle.statuses["night_vision"].duration,
+            STATUSES["night_vision"]["duration"] - 1,
+        )
 
     def test_lick_wounds_instinct_heals(self):
         battle = Battle()
@@ -328,7 +369,10 @@ class BattleFlowTest(TestCase):
         battle.enemy.agility = 1
         plan = battle.plan_attack()
         self.assertEqual(battle.enemy.hp, 80)
-        with patch("random.random", return_value=1.0), patch("random.randint", return_value=13):
+        with (
+            patch("random.random", return_value=1.0),
+            patch("random.randint", return_value=13),
+        ):
             battle.resolve_step(plan[0])
         self.assertEqual(battle.enemy.hp, 67)
 
@@ -357,7 +401,10 @@ class BattleFlowTest(TestCase):
         battle = Battle()
         battle.enemy.agility = 1
         battle.enemy.hp = 10
-        with patch("random.random", return_value=1.0), patch("random.randint", return_value=13):
+        with (
+            patch("random.random", return_value=1.0),
+            patch("random.randint", return_value=13),
+        ):
             battle.attack()
         self.assertTrue(battle.over)
         self.assertTrue(battle.won)
@@ -366,7 +413,10 @@ class BattleFlowTest(TestCase):
         battle = Battle()
         battle.player_hp = 5
         battle.enemy.intent = STING
-        with patch("random.random", return_value=1.0), patch("random.randint", return_value=15):
+        with (
+            patch("random.random", return_value=1.0),
+            patch("random.randint", return_value=15),
+        ):
             battle.enemy_turn()
         self.assertTrue(battle.over)
         self.assertFalse(battle.won)
@@ -376,7 +426,10 @@ class BattleFlowTest(TestCase):
         battle.player_hp = 10
         battle.nine_lives = True
         battle.enemy.intent = STING
-        with patch("random.random", return_value=1.0), patch("random.randint", return_value=15):
+        with (
+            patch("random.random", return_value=1.0),
+            patch("random.randint", return_value=15),
+        ):
             battle.enemy_turn()
         self.assertFalse(battle.over)
         self.assertEqual(battle.player_hp, 1)
@@ -387,10 +440,16 @@ class BattleFlowTest(TestCase):
         battle.player_hp = 10
         battle.nine_lives = True
         battle.enemy.intent = STING
-        with patch("random.random", return_value=1.0), patch("random.randint", return_value=15):
+        with (
+            patch("random.random", return_value=1.0),
+            patch("random.randint", return_value=15),
+        ):
             battle.enemy_turn()
         battle.enemy.intent = STING
-        with patch("random.random", return_value=1.0), patch("random.randint", return_value=15):
+        with (
+            patch("random.random", return_value=1.0),
+            patch("random.randint", return_value=15),
+        ):
             battle.enemy_turn()
         self.assertTrue(battle.over)
         self.assertFalse(battle.won)

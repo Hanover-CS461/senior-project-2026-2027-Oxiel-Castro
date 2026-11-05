@@ -8,7 +8,6 @@ swept-wedge geometry, built once in swept_points.
 import math
 
 import pygame
-
 from config import FADE_TIME, SPIRAL_TIME, WINDOW_SIZE, WIPE_TIME
 
 
@@ -49,7 +48,11 @@ class Transitions:
     @property
     def busy(self):
         """Return True while any transition is running, to block input."""
-        return self.fade_phase is not None or self.wipe is not None or self.spiral is not None
+        return (
+            self.fade_phase is not None
+            or self.wipe is not None
+            or self.spiral is not None
+        )
 
     def start_fade(self, next_action):
         """Begin a through-black fade, running next_action at full black."""

@@ -8,7 +8,6 @@ battle view and never change combat state.
 import random
 
 import pygame
-
 from config import COLOR_BLACK
 from ui import flash_surface
 
@@ -69,13 +68,15 @@ class Effects:
 
     def spawn_popup(self, text, x, y, color):
         """Add a floating text popup above a combatant."""
-        self.popups.append({
-            "text": text,
-            "x": x,
-            "y": y,
-            "start": pygame.time.get_ticks(),
-            "color": color,
-        })
+        self.popups.append(
+            {
+                "text": text,
+                "x": x,
+                "y": y,
+                "start": pygame.time.get_ticks(),
+                "color": color,
+            }
+        )
 
     def spawn_heal(self, amount, luna_x):
         """Show a heal number and a burst of green sparkles over Luna."""
@@ -90,27 +91,31 @@ class Effects:
         now = pygame.time.get_ticks()
         self.spawn_popup(f"+{amount}", luna_x + 36, popup_y, color)
         for _ in range(HEAL_SPARKLES):
-            self.particles.append({
-                "x": luna_x + random.randint(0, 120),
-                "y": SPARKLE_BASE_Y + random.randint(0, 80),
-                "vx": random.uniform(-25, 25),
-                "vy": random.uniform(-80, -30),
-                "start": now,
-                "color": color,
-            })
+            self.particles.append(
+                {
+                    "x": luna_x + random.randint(0, 120),
+                    "y": SPARKLE_BASE_Y + random.randint(0, 80),
+                    "vx": random.uniform(-25, 25),
+                    "vy": random.uniform(-80, -30),
+                    "start": now,
+                    "color": color,
+                }
+            )
 
     def spawn_death_dust(self, enemy_x, feet_y):
         """Puff of dust at the enemy's feet when it collapses."""
         now = pygame.time.get_ticks()
         for _ in range(DEATH_DUST):
-            self.particles.append({
-                "x": enemy_x + random.randint(-30, 30),
-                "y": feet_y - random.randint(0, 10),
-                "vx": random.uniform(-45, 45),
-                "vy": random.uniform(-55, -15),
-                "start": now,
-                "color": (185, 170, 145),
-            })
+            self.particles.append(
+                {
+                    "x": enemy_x + random.randint(-30, 30),
+                    "y": feet_y - random.randint(0, 10),
+                    "vx": random.uniform(-45, 45),
+                    "vy": random.uniform(-55, -15),
+                    "start": now,
+                    "color": (185, 170, 145),
+                }
+            )
 
     def draw_popups(self, screen, font, now):
         """Draw and expire floating damage numbers."""
@@ -153,7 +158,9 @@ class Effects:
         """Jitter the whole frame briefly after a heavy hit."""
         if now >= self.shake_until:
             return
-        mag = SHAKE_MAG if (self.shake_until - now) > SHAKE_TIME // 2 else SHAKE_MAG // 2
+        mag = (
+            SHAKE_MAG if (self.shake_until - now) > SHAKE_TIME // 2 else SHAKE_MAG // 2
+        )
         snap = screen.copy()
         screen.fill(COLOR_BLACK)
         screen.blit(snap, (random.randint(-mag, mag), random.randint(-mag, mag)))

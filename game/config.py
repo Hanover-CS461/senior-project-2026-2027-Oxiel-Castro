@@ -161,11 +161,31 @@ BAT_FRAMES = [
 ]
 
 ENEMY_SPRITES = {
-    "fly": {"path": "game/assets/images/enemies/fly.png", "scale": 5, "frames": FLY_FRAMES},
-    "snake": {"path": "game/assets/images/enemies/snake.png", "scale": 4, "frames": SNAKE_FRAMES},
-    "spider_2": {"path": "game/assets/images/enemies/spider_2.png", "scale": 8, "frames": SPIDER2_FRAMES},
-    "rat": {"path": "game/assets/images/enemies/rat_and_bat.png", "scale": 12, "frames": RAT_FRAMES},
-    "bat": {"path": "game/assets/images/enemies/rat_and_bat.png", "scale": 6, "frames": BAT_FRAMES},
+    "fly": {
+        "path": "game/assets/images/enemies/fly.png",
+        "scale": 5,
+        "frames": FLY_FRAMES,
+    },
+    "snake": {
+        "path": "game/assets/images/enemies/snake.png",
+        "scale": 4,
+        "frames": SNAKE_FRAMES,
+    },
+    "spider_2": {
+        "path": "game/assets/images/enemies/spider_2.png",
+        "scale": 8,
+        "frames": SPIDER2_FRAMES,
+    },
+    "rat": {
+        "path": "game/assets/images/enemies/rat_and_bat.png",
+        "scale": 12,
+        "frames": RAT_FRAMES,
+    },
+    "bat": {
+        "path": "game/assets/images/enemies/rat_and_bat.png",
+        "scale": 6,
+        "frames": BAT_FRAMES,
+    },
 }
 
 ATTACK_FRAMES = [

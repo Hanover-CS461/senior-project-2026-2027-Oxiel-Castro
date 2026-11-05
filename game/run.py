@@ -1,6 +1,6 @@
 import random
 
-from battle import Battle, Enemy, ITEMS, damage_move, status_move
+from battle import ITEMS, Battle, Enemy, damage_move, status_move
 from config import (
     PLAYER_MAX_FOCUS,
     PLAYER_MAX_HP,
@@ -9,7 +9,6 @@ from config import (
     PLAYER_START_HP,
     START_INVENTORY,
 )
-
 
 DEFAULT_TIER = 1
 

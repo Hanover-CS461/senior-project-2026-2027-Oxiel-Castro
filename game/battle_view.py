@@ -6,8 +6,7 @@ view only reads and advances the Battle it is given.
 """
 
 import pygame
-
-from battle import Battle, ITEMS
+from battle import ITEMS, Battle
 from config import (
     COLOR_FOCUS_BAR,
     COLOR_HEAVY,
@@ -103,7 +102,7 @@ class BattleView:
             Button(175, 500, 150, 60, "Defend", "defend"),
             Button(330, 500, 150, 60, "Rest", "rest"),
             Button(485, 500, 150, 60, "Items", "items"),
-            Button(640, 500, 150, 60, "Instincts", "instincts")
+            Button(640, 500, 150, 60, "Instincts", "instincts"),
         ]
         self.instinct_spots = [
             ("night_vision", 140, 430),
@@ -112,12 +111,23 @@ class BattleView:
             ("nine_lives", 380, 490),
         ]
         self.instinct_buttons = [
-            Button(x, y, 220, 55, f"{Battle.INSTINCTS[name]['name']} ({Battle.INSTINCTS[name]['cost']})", name)
+            Button(
+                x,
+                y,
+                220,
+                55,
+                f"{Battle.INSTINCTS[name]['name']} ({Battle.INSTINCTS[name]['cost']})",
+                name,
+            )
             for name, x, y in self.instinct_spots
         ]
         self.item_buttons = [
             Button(x, y, 220, 55, f"{ITEMS[name]['name']} x0", name)
-            for name, x, y in [("wet_food", 140, 430), ("catnip", 380, 430), ("milk", 140, 490)]
+            for name, x, y in [
+                ("wet_food", 140, 430),
+                ("catnip", 380, 430),
+                ("milk", 140, 490),
+            ]
         ]
         self.back_button = Button(620, 430, 140, 55, "Back", "back")
         self.submenu = None
@@ -165,25 +175,45 @@ class BattleView:
         self._draw_enemy(now)
 
         draw_outlined_text(
-            self.screen, self.small_font,
-            f"Luna HP {self.battle.player_hp}/{self.battle.player_hp_max}", (40, 30),
+            self.screen,
+            self.small_font,
+            f"Luna HP {self.battle.player_hp}/{self.battle.player_hp_max}",
+            (40, 30),
         )
         draw_outlined_text(
-            self.screen, self.small_font,
-            f"{self.battle.enemy.name} HP {self.battle.enemy.hp}/{self.battle.enemy.max_hp}", (460, 30),
+            self.screen,
+            self.small_font,
+            f"{self.battle.enemy.name} HP {self.battle.enemy.hp}/{self.battle.enemy.max_hp}",
+            (460, 30),
         )
         draw_outlined_text(
-            self.screen, self.small_font,
-            f"Focus {self.battle.focus}/{Battle.MAX_FOCUS}", (40, 80),
+            self.screen,
+            self.small_font,
+            f"Focus {self.battle.focus}/{Battle.MAX_FOCUS}",
+            (40, 80),
         )
 
         draw_bar(
-            self.screen, self.small_font, 40, 60, 300, 20,
-            int(self.luna_hp_display), self.battle.player_hp_max, COLOR_HP_BAR,
+            self.screen,
+            self.small_font,
+            40,
+            60,
+            300,
+            20,
+            int(self.luna_hp_display),
+            self.battle.player_hp_max,
+            COLOR_HP_BAR,
         )
         draw_bar(
-            self.screen, self.small_font, 460, 60, 300, 20,
-            int(self.enemy_hp_display), self.battle.enemy.max_hp, COLOR_HP_BAR,
+            self.screen,
+            self.small_font,
+            460,
+            60,
+            300,
+            20,
+            int(self.enemy_hp_display),
+            self.battle.enemy.max_hp,
+            COLOR_HP_BAR,
         )
         if "night_vision" in self.battle.statuses and self.battle.enemy.intent:
             intent = self.battle.enemy.intent
@@ -191,10 +221,19 @@ class BattleView:
             if "damage" in intent:
                 text += f" ({intent['damage'][0]}-{intent['damage'][1]})"
             color = COLOR_WHITE if not intent.get("heavy") else COLOR_HEAVY
-            draw_outlined_text(self.screen, self.small_font, text, (460, 90), color=color)
+            draw_outlined_text(
+                self.screen, self.small_font, text, (460, 90), color=color
+            )
         draw_bar(
-            self.screen, self.small_font, 40, 110, 300, 20,
-            int(self.focus_display), Battle.MAX_FOCUS, COLOR_FOCUS_BAR,
+            self.screen,
+            self.small_font,
+            40,
+            110,
+            300,
+            20,
+            int(self.focus_display),
+            Battle.MAX_FOCUS,
+            COLOR_FOCUS_BAR,
         )
 
         self._draw_message(self.messages.lines())
@@ -257,8 +296,11 @@ class BattleView:
                     self.effects.spawn_death_dust(
                         self.enemy_x, 360 + frames[0].get_height() // 2
                     )
-                if (not self._luna_busy() and not self._enemy_busy()
-                        and now - self.death_start >= DEATH_TIME):
+                if (
+                    not self._luna_busy()
+                    and not self._enemy_busy()
+                    and now - self.death_start >= DEATH_TIME
+                ):
                     self.turn_active = False
                     return True
             elif not self._luna_busy() and not self._enemy_busy():
@@ -331,8 +373,12 @@ class BattleView:
 
     def _update_hp_tween(self):
         """Ease the drawn bars toward their true values so changes are visible."""
-        self.luna_hp_display += (self.battle.player_hp - self.luna_hp_display) * TWEEN_RATE
-        self.enemy_hp_display += (self.battle.enemy.hp - self.enemy_hp_display) * TWEEN_RATE
+        self.luna_hp_display += (
+            self.battle.player_hp - self.luna_hp_display
+        ) * TWEEN_RATE
+        self.enemy_hp_display += (
+            self.battle.enemy.hp - self.enemy_hp_display
+        ) * TWEEN_RATE
         self.focus_display += (self.battle.focus - self.focus_display) * TWEEN_RATE
 
     def _status_aura(self, frame, pos, statuses, now):
@@ -363,7 +409,10 @@ class BattleView:
         self._status_aura(frame, (x, y), self.battle.statuses, now)
         if now < self.luna_hurt_until:
             self.effects.blit_flash(
-                self.screen, frame, (x, y), COLOR_WHITE,
+                self.screen,
+                frame,
+                (x, y),
+                COLOR_WHITE,
                 210 * (self.luna_hurt_until - now) / HURT_TIME,
             )
 
@@ -387,7 +436,10 @@ class BattleView:
         self._status_aura(frame, (x, y), self.battle.enemy.statuses, now)
         if now < self.enemy_hurt_until:
             self.effects.blit_flash(
-                self.screen, frame, (x, y), COLOR_WHITE,
+                self.screen,
+                frame,
+                (x, y),
+                COLOR_WHITE,
                 210 * (self.enemy_hurt_until - now) / HURT_TIME,
             )
 
@@ -422,8 +474,9 @@ class BattleView:
                 "buttons": self.instinct_buttons,
                 "font": self.small_font,
                 "back": True,
-                "disabled": lambda b: self.turn_active
-                or not self.battle.can_use_instinct(b.action),
+                "disabled": lambda b: (
+                    self.turn_active or not self.battle.can_use_instinct(b.action)
+                ),
                 "tooltip": lambda b: self.battle.INSTINCTS[b.action].get("desc"),
                 "refresh": None,
                 "activate": lambda b: self.battle.use_instinct(b.action),
@@ -433,8 +486,9 @@ class BattleView:
                 "buttons": self.item_buttons,
                 "font": self.small_font,
                 "back": True,
-                "disabled": lambda b: self.turn_active
-                or not self.battle.can_use_item(b.action),
+                "disabled": lambda b: (
+                    self.turn_active or not self.battle.can_use_item(b.action)
+                ),
                 "tooltip": lambda b: ITEMS[b.action].get("desc"),
                 "refresh": lambda b: setattr(
                     b,
@@ -447,8 +501,10 @@ class BattleView:
             "buttons": self.battle_buttons,
             "font": self.font,
             "back": False,
-            "disabled": lambda b: self.turn_active
-            or (b.action == "attack" and not self.battle.can_attack()),
+            "disabled": lambda b: (
+                self.turn_active
+                or (b.action == "attack" and not self.battle.can_attack())
+            ),
             "tooltip": lambda b: None,
             "refresh": None,
             "activate": self._activate_battle_button,
@@ -519,13 +575,18 @@ class BattleView:
         y = MESSAGE_PANEL_Y + 8
         for line in lines:
             draw_outlined_text(
-                self.screen, self.small_font, line,
-                (MESSAGE_PANEL_X + 14, y), backing=False,
+                self.screen,
+                self.small_font,
+                line,
+                (MESSAGE_PANEL_X + 14, y),
+                backing=False,
             )
             y += MESSAGE_LINE_SPACING
         if self.messages.has_more:
             draw_outlined_text(
-                self.screen, self.small_font, "...",
+                self.screen,
+                self.small_font,
+                "...",
                 (MESSAGE_PANEL_X + MESSAGE_PANEL_WIDTH - 46, y - MESSAGE_LINE_SPACING),
                 backing=False,
             )
@@ -545,8 +606,12 @@ class BattleView:
         y = top + 8
         for line in lines:
             draw_outlined_text(
-                self.screen, self.small_font, line,
-                (MESSAGE_PANEL_X + 14, y), color=COLOR_HINT, backing=False,
+                self.screen,
+                self.small_font,
+                line,
+                (MESSAGE_PANEL_X + 14, y),
+                color=COLOR_HINT,
+                backing=False,
             )
             y += MESSAGE_LINE_SPACING
 
