@@ -1,3 +1,10 @@
+"""Game-wide constants in one place.
+
+Holds the window and animation timings, colors, image and music paths, player
+balance values, and the sprite-sheet frame crops. Keeping them here means
+tuning gameplay or art never requires digging through the drawing code.
+"""
+
 FONT = "game/assets/Fonts/PixelPurl.ttf"
 WINDOW_SIZE = (800, 600)
 ENEMY_DELAY = 1400

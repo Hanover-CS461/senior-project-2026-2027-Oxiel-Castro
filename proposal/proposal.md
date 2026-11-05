@@ -180,14 +180,14 @@ Most of the battle systems I already know how to build (state machines, menus, d
 
 **Build order principle: combat fun first, then systems, then map, then polish — so a playable demo always exists.**
 
-- **Weeks 1–2:** Scaffold the Pygame project (window, draw loop, input handling). Then build **one battle** — Attack, one enemy, one damage formula, focus + Rest. *If this isn't fun, everything changes here.*
+- **Weeks 1–2:** Scaffold the Pygame project (window, draw loop, input handling). Then build **one battle** — Attack, one enemy, one damage formula, focus + Rest. 
 - **Weeks 3–5:** Full combat system — all statuses, instincts, enemy AI with intent telegraphing, turn order + agility + dodge.
 - **Weeks 6–7:** Items + inventory UI + the focus/item/heal economy balance.
 - **Weeks 8–9:** Clickable campus map + run structure + seeded human location, then enemies per building + first boss.
 - **Week 10:** Playtesting, balance, bug fixes, demo video, presentation prep.
 
 ### Cut list (cut first if time runs out)
-Save/serialization · full art pass (flat geometric cats only if time) · Steal · Nine Lives · bosses beyond the first · walkable movement · sound
+Save/serialization · full art pass (flat geometric cats only if time) · Steal · walkable movement ·
 
 ---
 

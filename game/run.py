@@ -1,3 +1,11 @@
+"""Seeded run state and progression.
+
+A Run owns the persistent parts of a playthrough: the seed, the player's HP,
+focus, agility, and inventory, which building hides Oxiel, and how far each
+building has been cleared. It builds the Battle for each stage but contains no
+pygame code, so the whole run can be tested headlessly.
+"""
+
 import random
 
 from battle import ITEMS, Battle, Enemy, damage_move, status_move

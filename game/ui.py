@@ -1,3 +1,10 @@
+"""Shared UI drawing helpers.
+
+Small pygame primitives used by every screen: clickable and disabled buttons,
+outlined text, HP/focus bars, word wrapping, and solid-color sprite
+silhouettes for hit flashes.
+"""
+
 import pygame
 from config import (
     COLOR_BLACK,

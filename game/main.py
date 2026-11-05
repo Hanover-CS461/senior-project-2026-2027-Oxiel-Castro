@@ -1,3 +1,11 @@
+"""Game entry point and screen router.
+
+Creates the window, loads assets, and runs the main loop. It owns the title,
+difficulty, intro, map, victory, and defeat screens, routes input to whichever
+screen is active, and hands control to BattleView during fights. Both the
+desktop (main) and browser (web_main) entry points live here.
+"""
+
 import asyncio
 import threading
 

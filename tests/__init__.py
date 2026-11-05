@@ -1,3 +1,5 @@
+"""Test package: puts the game/ directory on the import path for the suite."""
+
 import sys
 from pathlib import Path
 

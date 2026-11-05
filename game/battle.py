@@ -1,3 +1,11 @@
+"""Pure battle logic.
+
+The combat state machine: player and enemy stats, status effects, intent
+selection, turn order, and win/loss resolution. It imports nothing from
+pygame, so the rules can be unit-tested and the view can render them however
+it likes.
+"""
+
 import random
 
 from config import (
@@ -23,6 +31,10 @@ class Status:
         self.dot = definition.get("dot", 0)
 
 
+# Status definitions. "modifiers" change a stat while active (agility adds,
+# *_mult multiplies damage), "caps" clamp how far stacking can push each stat,
+# "triggers" name the events that decrement the duration, and "dot" is
+# damage-over-time applied at the end of each round.
 STATUSES = {
     "prowl": {
         "name": "Prowl",

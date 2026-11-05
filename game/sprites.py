@@ -1,3 +1,11 @@
+"""Sprite loading helpers.
+
+Loads images through a per-path cache and crops animation frames out of
+sprite sheets, optionally scaling and horizontally flipping them. Frames can
+also be normalized onto a common canvas so an animation doesn't jitter as the
+individual frame sizes change.
+"""
+
 import pygame
 
 _image_cache = {}
