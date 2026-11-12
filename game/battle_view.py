@@ -104,6 +104,15 @@ class BattleView:
             Button(485, 500, 150, 60, "Items", "items"),
             Button(640, 500, 150, 60, "Instincts", "instincts"),
         ]
+        self.attack_buttons = [
+            Button(x, y, 220, 55, "", name)
+            for name, x, y in [
+                ("scratch", 140, 430),
+                ("steal", 380, 430),
+                ("flurry", 140, 490),
+                ("pounce", 380, 490),
+            ]
+        ]
         self.instinct_spots = [
             ("night_vision", 140, 430),
             ("lick_wounds", 380, 430),
@@ -260,6 +269,11 @@ class BattleView:
         """Handle clicks on the battle menu and its submenus."""
         if self.battle.phase != "player" or self.turn_active:
             return
+        if self.battle.pounce_charged:
+            plan = self.battle.plan_attack("pounce")
+            if plan is not None:
+                self._begin_turn(plan)
+            return
         menu = self._battle_menu()
         if menu["back"] and self.back_button.rect.collidepoint(pos):
             self.submenu = None
@@ -285,6 +299,10 @@ class BattleView:
         self.messages.sync(self.battle.message, now)
         self.messages.advance(now)
         if not self.turn_active:
+            if self.battle.pounce_charged and not self.battle.over:
+                plan = self.battle.plan_attack("pounce")
+                if plan is not None:
+                    self._begin_turn(plan)
             return False
 
         # A decided fight waits for the current swing and death animation.
@@ -469,6 +487,18 @@ class BattleView:
 
     def _battle_menu(self):
         """Return the active battle menu: its buttons and draw/click behavior."""
+        if self.submenu == "attacks":
+            return {
+                "buttons": self.attack_buttons,
+                "font": self.small_font,
+                "back": True,
+                "disabled": lambda b: (
+                    self.turn_active or not self.battle.can_use_attack(b.action)
+                ),
+                "tooltip": lambda b: Battle.ATTACKS[b.action].get("desc"),
+                "refresh": lambda b: setattr(b, "text", self._attack_label(b.action)),
+                "activate": lambda b: self._activate_attack(b.action),
+            }
         if self.submenu == "instincts":
             return {
                 "buttons": self.instinct_buttons,
@@ -503,7 +533,7 @@ class BattleView:
             "back": False,
             "disabled": lambda b: (
                 self.turn_active
-                or (b.action == "attack" and not self.battle.can_attack())
+                or (b.action == "attack" and not self.battle.can_use_any_attack())
             ),
             "tooltip": lambda b: None,
             "refresh": None,
@@ -513,9 +543,7 @@ class BattleView:
     def _activate_battle_button(self, button):
         """Queue the main battle menu's action for the turn sequencer."""
         if button.action == "attack":
-            plan = self.battle.plan_attack()
-            if plan is not None:
-                self._begin_turn(plan)
+            self.submenu = "attacks"
         elif button.action == "rest":
             self.battle.rest()
         elif button.action == "defend":
@@ -524,6 +552,22 @@ class BattleView:
             self.submenu = "items"
         elif button.action == "instincts":
             self.submenu = "instincts"
+
+    def _attack_label(self, key):
+        """Return an attack button's label, noting a free charged Pounce."""
+        if key == "pounce" and self.battle.pounce_charged:
+            return "Pounce (free)"
+        attack = Battle.ATTACKS[key]
+        return f"{attack['name']} ({attack['cost']})"
+
+    def _activate_attack(self, key):
+        """Charge Pounce, or begin the chosen attack's turn."""
+        if key == "pounce" and not self.battle.pounce_charged:
+            self.battle.charge_pounce()
+            return
+        plan = self.battle.plan_attack(key)
+        if plan is not None:
+            self._begin_turn(plan)
 
     def _begin_turn(self, plan):
         """Store an ordered list of steps and start resolving them."""
@@ -624,7 +668,7 @@ class BattleView:
         if not self.step_resolved and self.attack_state == "attacking":
             damage = self.battle.resolve_step(self.turn_steps[self.step_index])
             if damage > 0:
-                self._after_hit(damage, on_enemy=True)
+                self._after_hit(damage, on_enemy=True, hits=self.battle.hit_damages)
             else:
                 self._dodge("enemy", now)
             self.step_resolved = True
@@ -683,12 +727,17 @@ class BattleView:
             self.round_finished = False
         return False
 
-    def _after_hit(self, damage, on_enemy, heavy=False):
+    def _after_hit(self, damage, on_enemy, heavy=False, hits=None):
         """Trigger hit feedback for a landed blow."""
         now = pygame.time.get_ticks()
         if on_enemy:
             self.enemy_hurt_until = now + HURT_TIME
-            self.effects.spawn_popup(f"-{damage}", self.enemy_x - 6, 300, COLOR_HEAVY)
+            if hits and len(hits) > 1:
+                self.effects.spawn_hit_series(hits, self.enemy_x - 6, 300, COLOR_HEAVY)
+            else:
+                self.effects.spawn_popup(
+                    f"-{damage}", self.enemy_x - 6, 300, COLOR_HEAVY
+                )
         else:
             self.luna_hurt_until = now + HURT_TIME
             self.effects.spawn_popup(f"-{damage}", self.luna_x + 46, 300, COLOR_HP_BAR)

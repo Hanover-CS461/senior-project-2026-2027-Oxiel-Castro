@@ -13,6 +13,8 @@ from ui import flash_surface
 
 POPUP_TIME = 750
 POPUP_RISE = 54
+HIT_SERIES_DELAY = 110
+HIT_SERIES_SPREAD = 26
 SHAKE_TIME = 220
 SHAKE_MAG = 6
 HEAL_SPARKLES = 12
@@ -78,6 +80,21 @@ class Effects:
             }
         )
 
+    def spawn_hit_series(self, damages, x, y, color):
+        """Show each hit of a multi-hit attack as its own staggered number."""
+        now = pygame.time.get_ticks()
+        middle = (len(damages) - 1) / 2
+        for index, amount in enumerate(damages):
+            self.popups.append(
+                {
+                    "text": f"-{amount}",
+                    "x": x + int((index - middle) * HIT_SERIES_SPREAD),
+                    "y": y - index * 8,
+                    "start": now + index * HIT_SERIES_DELAY,
+                    "color": color,
+                }
+            )
+
     def spawn_heal(self, amount, luna_x):
         """Show a heal number and a burst of green sparkles over Luna."""
         self.spawn_gain(amount, (80, 230, 120), luna_x, 300)
@@ -122,6 +139,9 @@ class Effects:
         alive = []
         for popup in self.popups:
             age = now - popup["start"]
+            if age < 0:
+                alive.append(popup)
+                continue
             if age > POPUP_TIME:
                 continue
             frac = age / POPUP_TIME

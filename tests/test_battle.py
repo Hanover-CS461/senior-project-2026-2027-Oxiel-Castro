@@ -14,6 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "game"))
 from battle import (
     ENEMY_MOVES,
     ITEMS,
+    PLAYER_ATTACKS,
     STATUSES,
     Battle,
     Enemy,
@@ -249,7 +250,7 @@ class BattleFlowTest(TestCase):
 
     def test_attack_insufficient_focus(self):
         battle = Battle()
-        battle.focus = 2
+        battle.focus = 1
         self.assertIsNone(battle.attack())
         self.assertEqual(battle.message, "Not enough focus to attack!")
 
@@ -453,6 +454,231 @@ class BattleFlowTest(TestCase):
             battle.enemy_turn()
         self.assertTrue(battle.over)
         self.assertFalse(battle.won)
+
+
+class AttacksTest(TestCase):
+    """Tests for the four player attacks and the Pounce charge state."""
+
+    def test_all_attacks_defined(self):
+        for key in ("scratch", "steal", "flurry", "pounce"):
+            self.assertIn(key, PLAYER_ATTACKS)
+            for field in ("name", "cost", "damage", "desc"):
+                self.assertIn(field, PLAYER_ATTACKS[key])
+
+    def test_attack_costs_are_distinct(self):
+        costs = [
+            PLAYER_ATTACKS[key]["cost"]
+            for key in ("scratch", "steal", "flurry", "pounce")
+        ]
+        self.assertEqual(len(set(costs)), 4)
+
+    def test_scratch_plan_uses_scratch_cost(self):
+        battle = Battle()
+        battle.enemy.agility = 1
+        with (
+            patch("random.random", return_value=1.0),
+            patch("random.randint", return_value=13),
+        ):
+            plan = battle.plan_attack()
+            damage = battle.resolve_step(plan[0])
+        self.assertEqual(damage, 13)
+        self.assertEqual(battle.focus, 16 - PLAYER_ATTACKS["scratch"]["cost"])
+
+    def test_scratch_message_names_the_attack(self):
+        battle = Battle()
+        battle.enemy.agility = 1
+        with (
+            patch("random.random", return_value=1.0),
+            patch("random.randint", return_value=13),
+        ):
+            plan = battle.plan_attack("scratch")
+            battle.resolve_step(plan[0])
+        self.assertIn("Luna scratches the Fly for 13 damage!", battle.message)
+
+    def test_steal_message_names_the_attack(self):
+        battle = Battle()
+        battle.enemy.agility = 1
+        with (
+            patch("random.random", side_effect=[1.0, 1.0]),
+            patch("random.randint", return_value=9),
+        ):
+            plan = battle.plan_attack("steal")
+            battle.resolve_step(plan[0])
+        self.assertIn("Luna steals from the Fly for 9 damage!", battle.message)
+
+    def test_flurry_message_names_the_attack(self):
+        battle = Battle()
+        battle.enemy.agility = 1
+        with (
+            patch("random.random", return_value=1.0),
+            patch("random.randint", return_value=5),
+        ):
+            plan = battle.plan_attack("flurry")
+            battle.resolve_step(plan[0])
+        self.assertIn("Luna slashes the Fly for 5 damage!", battle.message)
+
+    def test_pounce_message_names_the_attack(self):
+        battle = Battle()
+        battle.enemy.agility = 1
+        battle.charge_pounce()
+        with (
+            patch("random.random", return_value=0.0),
+            patch("random.randint", return_value=34),
+        ):
+            plan = battle.plan_attack("pounce")
+            battle.resolve_step(plan[0])
+        self.assertIn("Luna pounces on the Fly for 34 damage!", battle.message)
+
+    def test_flurry_hits_three_times(self):
+        battle = Battle()
+        battle.enemy.agility = 1
+        with (
+            patch("random.random", return_value=1.0),
+            patch("random.randint", return_value=5),
+        ):
+            plan = battle.plan_attack("flurry")
+            damage = battle.resolve_step(plan[0])
+        self.assertEqual(damage, 15)
+        self.assertEqual(battle.enemy.hp, 65)
+        self.assertEqual(battle.focus, 16 - PLAYER_ATTACKS["flurry"]["cost"])
+
+    def test_flurry_records_each_hit(self):
+        battle = Battle()
+        battle.enemy.agility = 1
+        with (
+            patch("random.random", return_value=1.0),
+            patch("random.randint", return_value=5),
+        ):
+            plan = battle.plan_attack("flurry")
+            damage = battle.resolve_step(plan[0])
+        self.assertEqual(battle.hit_damages, [5, 5, 5])
+        self.assertEqual(damage, 15)
+
+    def test_single_hit_records_one_damage(self):
+        battle = Battle()
+        battle.enemy.agility = 1
+        with (
+            patch("random.random", return_value=1.0),
+            patch("random.randint", return_value=13),
+        ):
+            plan = battle.plan_attack("scratch")
+            battle.resolve_step(plan[0])
+        self.assertEqual(battle.hit_damages, [13])
+
+    def test_flurry_ticks_statuses_once(self):
+        battle = Battle()
+        battle.enemy.agility = 1
+        apply_status(battle.statuses, "riled")
+        with (
+            patch("random.random", return_value=1.0),
+            patch("random.randint", return_value=5),
+        ):
+            plan = battle.plan_attack("flurry")
+            damage = battle.resolve_step(plan[0])
+        self.assertEqual(damage, 21)
+        self.assertEqual(battle.statuses["riled"].duration, 1)
+
+    def test_flurry_stops_when_enemy_dies(self):
+        battle = Battle()
+        battle.enemy.agility = 1
+        battle.enemy.hp = 5
+        with (
+            patch("random.random", return_value=1.0),
+            patch("random.randint", return_value=5),
+        ):
+            plan = battle.plan_attack("flurry")
+            damage = battle.resolve_step(plan[0])
+        self.assertEqual(damage, 5)
+        self.assertTrue(battle.over)
+        self.assertTrue(battle.won)
+
+    def test_pounce_charge_costs_focus_and_waits(self):
+        battle = Battle()
+        self.assertTrue(battle.charge_pounce())
+        self.assertEqual(battle.focus, 16 - PLAYER_ATTACKS["pounce"]["cost"])
+        self.assertTrue(battle.pounce_charged)
+        self.assertEqual(battle.phase, "enemy")
+        self.assertEqual(battle.enemy.hp, battle.enemy.max_hp)
+
+    def test_pounce_charge_needs_focus(self):
+        battle = Battle()
+        battle.focus = PLAYER_ATTACKS["pounce"]["cost"] - 1
+        self.assertFalse(battle.charge_pounce())
+        self.assertFalse(battle.pounce_charged)
+        self.assertEqual(battle.phase, "player")
+
+    def test_pounce_requires_charge(self):
+        battle = Battle()
+        self.assertIsNone(battle.plan_attack("pounce"))
+        self.assertIn("charge", battle.message)
+
+    def test_pounce_release_is_free_and_undodgeable(self):
+        battle = Battle()
+        battle.enemy.agility = 1
+        battle.charge_pounce()
+        focus = battle.focus
+        with (
+            patch("random.random", return_value=0.0),
+            patch("random.randint", return_value=34),
+        ):
+            plan = battle.plan_attack("pounce")
+            damage = battle.resolve_step(plan[0])
+        self.assertEqual(damage, 34)
+        self.assertEqual(battle.focus, focus)
+        self.assertFalse(battle.pounce_charged)
+        self.assertEqual(battle.enemy.hp, battle.enemy.max_hp - 34)
+
+    def test_charge_is_held_until_release(self):
+        battle = Battle()
+        battle.charge_pounce()
+        self.assertTrue(battle.pounce_charged)
+        battle.plan_attack("pounce")
+        self.assertFalse(battle.pounce_charged)
+
+    def test_steal_can_take_an_item(self):
+        battle = Battle()
+        battle.enemy.agility = 1
+        battle.enemy.loot = ["wet_food"]
+        with (
+            patch("random.random", side_effect=[1.0, 0.0]),
+            patch("random.randint", return_value=9),
+        ):
+            plan = battle.plan_attack("steal")
+            damage = battle.resolve_step(plan[0])
+        self.assertEqual(damage, 9)
+        self.assertEqual(battle.inventory["wet_food"], 4)
+        self.assertEqual(battle.enemy.loot, [])
+
+    def test_steal_can_fail(self):
+        battle = Battle()
+        battle.enemy.agility = 1
+        battle.enemy.loot = ["wet_food"]
+        with (
+            patch("random.random", side_effect=[1.0, 1.0]),
+            patch("random.randint", return_value=9),
+        ):
+            plan = battle.plan_attack("steal")
+            battle.resolve_step(plan[0])
+        self.assertEqual(battle.inventory["wet_food"], 3)
+        self.assertEqual(battle.enemy.loot, ["wet_food"])
+
+    def test_steal_with_empty_loot_does_nothing(self):
+        battle = Battle()
+        battle.enemy.agility = 1
+        battle.enemy.loot = []
+        with (
+            patch("random.random", return_value=1.0),
+            patch("random.randint", return_value=9),
+        ):
+            plan = battle.plan_attack("steal")
+            battle.resolve_step(plan[0])
+        self.assertEqual(battle.inventory["wet_food"], 3)
+
+    def test_steal_chance_scales_with_agility(self):
+        battle = Battle()
+        slow = battle.steal_chance()
+        battle.agility = 10
+        self.assertGreater(battle.steal_chance(), slow)
 
 
 class ItemsTest(TestCase):

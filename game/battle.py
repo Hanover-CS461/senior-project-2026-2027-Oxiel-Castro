@@ -183,12 +183,51 @@ ITEMS = {
     },
 }
 
+# Player attack menu. Each attack owns a distinct role: Scratch is the
+# efficient baseline, Steal trades damage for a chance at an item, Claw
+# Flurry spreads damage across several hits, and Pounce spends a turn
+# charging for one large, undodgeable blow.
+PLAYER_ATTACKS = {
+    "scratch": {
+        "name": "Scratch",
+        "verb": "scratches",
+        "cost": 2,
+        "damage": (13, 16),
+        "desc": "A reliable swipe for 13-16 damage.",
+    },
+    "steal": {
+        "name": "Steal",
+        "verb": "steals from",
+        "cost": 3,
+        "damage": (8, 11),
+        "steal": True,
+        "desc": "An 8-11 damage swipe with a chance to snatch an item.",
+    },
+    "flurry": {
+        "name": "Claw Flurry",
+        "verb": "slashes",
+        "cost": 4,
+        "damage": (5, 7),
+        "hits": 3,
+        "desc": "Three rapid 5-7 damage hits; each can be dodged.",
+    },
+    "pounce": {
+        "name": "Pounce",
+        "verb": "pounces on",
+        "cost": 6,
+        "damage": (34, 42),
+        "charge": True,
+        "undodgeable": True,
+        "desc": "Charge for a turn, then land an undodgeable 34-42 hit.",
+    },
+}
+
 
 class Enemy:
     """A single enemy with stats, a move pool, and a chosen intent."""
 
-    def __init__(self, name, hp, agility, moves, sprite="fly"):
-        """Create an enemy with name, hit points, agility, moves, and a sprite key."""
+    def __init__(self, name, hp, agility, moves, sprite="fly", loot=None):
+        """Create an enemy with stats, moves, a sprite key, and stealable loot."""
         self.name = name
         self.hp = hp
         self.max_hp = hp
@@ -196,6 +235,7 @@ class Enemy:
         self.statuses = {}
         self.moves = moves
         self.sprite = sprite
+        self.loot = list(loot) if loot is not None else list(ITEMS)
         self.intent = None
 
     def choose_intent(self):
@@ -208,13 +248,16 @@ class Enemy:
 class Battle:
     """Pure battle logic, no pygame dependency."""
 
-    ATTACK_COST = 3
-    ATTACK_DAMAGE = (13, 16)
+    ATTACKS = PLAYER_ATTACKS
+    ATTACK_COST = PLAYER_ATTACKS["scratch"]["cost"]
     REST_GAIN = 12
     REST_HEAL = 5
     MAX_FOCUS = PLAYER_MAX_FOCUS
     DODGE_BASE = 0.05
     DODGE_PER_AGILITY = 0.01
+    STEAL_BASE = 0.10
+    STEAL_PER_AGILITY = 0.05
+    STEAL_CAP = 0.45
     INSTINCTS = {
         "night_vision": {
             "name": "Night Vision",
@@ -263,6 +306,8 @@ class Battle:
         self.message = f"A wild {self.enemy.name} appears!"
         self._queued_attack = False
         self.nine_lives = False
+        self.pounce_charged = False
+        self.hit_damages = []
         self.statuses = {}
         self.inventory = (
             dict(inventory) if inventory is not None else dict(START_INVENTORY)
@@ -281,8 +326,40 @@ class Battle:
             self.message = text
 
     def can_attack(self):
-        """Return True if Luna has enough focus to attack."""
-        return self.focus >= self.ATTACK_COST
+        """Return True if Luna has enough focus for the default attack."""
+        return self.can_use_attack("scratch")
+
+    def attack_cost(self, key):
+        """Return an attack's focus cost; a charged Pounce releases for free."""
+        if key == "pounce" and self.pounce_charged:
+            return 0
+        return self.ATTACKS[key]["cost"]
+
+    def can_use_attack(self, key):
+        """Return True if Luna has enough focus for the named attack."""
+        return self.focus >= self.attack_cost(key)
+
+    def can_use_any_attack(self):
+        """Return True if Luna can afford at least one attack."""
+        return any(self.can_use_attack(key) for key in self.ATTACKS)
+
+    def steal_chance(self):
+        """Return the agility-scaled chance to steal an item."""
+        agility = effective_agility(self.agility, self.statuses)
+        return min(self.STEAL_CAP, self.STEAL_BASE + self.STEAL_PER_AGILITY * agility)
+
+    def charge_pounce(self):
+        """Spend the turn charging Pounce; the free release comes next turn."""
+        if self.pounce_charged:
+            return False
+        if not self.can_use_attack("pounce"):
+            self.message = "Not enough focus to charge Pounce!"
+            return False
+        self.focus -= self.attack_cost("pounce")
+        self.pounce_charged = True
+        self.message = "Luna crouches low, ready to pounce!"
+        self.phase = "enemy"
+        return True
 
     def attack(self):
         """Start the round with Luna's attack; the faster combatant acts first."""
@@ -302,20 +379,29 @@ class Battle:
         self.phase = "enemy"
         return None
 
-    def plan_attack(self):
+    def plan_attack(self, key="scratch"):
         """Commit to an attack and return the round's ordered steps.
 
         The caller animates each step and applies it with resolve_step,
         choosing to do so at the moment of contact for damage. Returns None
-        if Luna lacks the focus to attack.
+        if the attack is unavailable: Pounce must be charged first, and every
+        attack must be affordable.
         """
-        if not self.can_attack():
+        if key == "pounce" and not self.pounce_charged:
+            self.message = "Pounce needs a turn to charge!"
+            return None
+        if not self.can_use_attack(key):
             self.message = "Not enough focus to attack!"
             return None
 
+        move = dict(self.ATTACKS[key])
+        move["cost"] = self.attack_cost(key)
         self.message = ""
+        if key == "pounce":
+            self.pounce_charged = False
+
         self.phase = "enemy"
-        luna = {"actor": "luna"}
+        luna = {"actor": "luna", "move": move}
         enemy = self.enemy_step()
         if self._player_acts_first():
             self._say("Luna strikes first!")
@@ -336,7 +422,7 @@ class Battle:
     def resolve_step(self, step):
         """Apply a step's effect; call at contact for damage steps."""
         if step["actor"] == "luna":
-            return self._luna_attack()
+            return self._luna_attack(step.get("move"))
         self._execute_intent()
         return 0
 
@@ -481,28 +567,55 @@ class Battle:
             return False
         return random.choice([True, False])
 
-    def _luna_attack(self):
-        """Resolve Luna's attack: spend focus, then damage unless dodged."""
-        self.focus -= self.ATTACK_COST
-        if random.random() < self.dodge_chance(
-            effective_agility(self.enemy.agility, self.enemy.statuses)
-        ):
-            self._say(f"The {self.enemy.name} dodges Luna's attack!")
-            tick_statuses(self.enemy.statuses, "was_attacked")
-            return 0
-        damage = random.randint(*self.ATTACK_DAMAGE)
-        outgoing = damage_multipliers(self.statuses)[0]
-        incoming = damage_multipliers(self.enemy.statuses)[1]
-        damage = int(damage * outgoing * incoming)
-        self.enemy.hp = max(0, self.enemy.hp - damage)
-        self._say(f"Luna attacks the {self.enemy.name} for {damage} damage!")
-        tick_statuses(self.statuses, "dealt_hit")
-        tick_statuses(self.enemy.statuses, "took_hit")
+    def _luna_attack(self, move=None):
+        """Resolve an attack move: pay its cost, roll each hit, then steal.
+
+        Multi-hit moves roll dodge per hit but tick hit statuses once per
+        action, so Riled boosts the whole flurry instead of expiring early.
+        """
+        move = self.ATTACKS["scratch"] if move is None else move
+        self.focus -= move["cost"]
+        self.hit_damages = []
+        total = 0
+        for _ in range(move.get("hits", 1)):
+            if not move.get("undodgeable") and random.random() < self.dodge_chance(
+                effective_agility(self.enemy.agility, self.enemy.statuses)
+            ):
+                self._say(
+                    f"The {self.enemy.name} dodges Luna's {move['name'].lower()}!"
+                )
+                continue
+            damage = random.randint(*move["damage"])
+            outgoing = damage_multipliers(self.statuses)[0]
+            incoming = damage_multipliers(self.enemy.statuses)[1]
+            damage = int(damage * outgoing * incoming)
+            self.enemy.hp = max(0, self.enemy.hp - damage)
+            total += damage
+            self.hit_damages.append(damage)
+            self._say(f"Luna {move['verb']} the {self.enemy.name} for {damage} damage!")
+            if self.enemy.hp == 0:
+                self.over = True
+                self.won = True
+                break
+        if total > 0:
+            tick_statuses(self.statuses, "dealt_hit")
+            tick_statuses(self.enemy.statuses, "took_hit")
         tick_statuses(self.enemy.statuses, "was_attacked")
-        if self.enemy.hp == 0:
-            self.over = True
-            self.won = True
-        return damage
+        if move.get("steal"):
+            self._try_steal()
+        return total
+
+    def _try_steal(self):
+        """Snatch a random carried item on a successful agility roll."""
+        if not self.enemy.loot:
+            return
+        if random.random() >= self.steal_chance():
+            self._say("Luna finds nothing worth taking.")
+            return
+        item = random.choice(self.enemy.loot)
+        self.enemy.loot.remove(item)
+        self.inventory[item] = self.inventory.get(item, 0) + 1
+        self._say(f"Luna snatches a {ITEMS[item]['name']}!")
 
     def _enemy_attack(self, move):
         """Resolve the enemy's damage move, unless Luna dodges or Nine Lives saves her."""
