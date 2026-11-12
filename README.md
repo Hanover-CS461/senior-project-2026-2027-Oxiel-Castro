@@ -8,7 +8,7 @@ fights the creatures guarding each one, and has to reach her human before she is
 defeated.
 
 **[Play in your browser](https://hanover-cs461.github.io/senior-project-2026-2027-Oxiel-Castro/game/)** ·
-[Project proposal](proposal/proposal.md)
+[Project site](https://hanover-cs461.github.io/senior-project-2026-2027-Oxiel-Castro/)
 
 ![Luna in battle](proposal/slides/assets/title.png)
 
