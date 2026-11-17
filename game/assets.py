@@ -37,8 +37,6 @@ class Assets:
         }
         self.campus_bg = load_image(CAMPUS_IMAGE, WINDOW_SIZE)
 
-        self.luna_frames = load_frames(LUNA_SHEET, LUNA_FRAMES, size=(132, 96))
-        self.walk_frames = load_frames(LUNA_SHEET, WALK_FRAMES, scale=5)
         self.enemy_frames = {
             key: load_frames(
                 spec["path"],
@@ -49,13 +47,34 @@ class Assets:
             )
             for key, spec in ENEMY_SPRITES.items()
         }
-        self.luna_attack_frames = load_frames(LUNA_SHEET, ATTACK_FRAMES, scale=5)
-        self.map_idle_frames = load_frames(LUNA_SHEET, LUNA_FRAMES, scale=2)
-        self.map_walk_frames = load_frames(LUNA_SHEET, WALK_FRAMES, scale=2)
+        self.luna_sheet = None
+        self._luna_cache = {}
+        self.set_luna_sheet(LUNA_SHEET)
 
-        self.defeat_frame = load_frames(LUNA_SHEET, [DEFEAT_FRAME], scale=DEFEAT_SCALE)[
-            0
-        ]
+    def _build_luna_frames(self, sheet_path):
+        """Crop every Luna animation from a sheet, keyed by attribute name."""
+        return {
+            "luna_frames": load_frames(sheet_path, LUNA_FRAMES, size=(132, 96)),
+            "walk_frames": load_frames(sheet_path, WALK_FRAMES, scale=5),
+            "luna_attack_frames": load_frames(sheet_path, ATTACK_FRAMES, scale=5),
+            "map_idle_frames": load_frames(sheet_path, LUNA_FRAMES, scale=2),
+            "map_walk_frames": load_frames(sheet_path, WALK_FRAMES, scale=2),
+            "defeat_frame": load_frames(sheet_path, [DEFEAT_FRAME], scale=DEFEAT_SCALE)[
+                0
+            ],
+        }
+
+    def set_luna_sheet(self, sheet_path):
+        """Switch Luna's sprite sheet, caching frames and rebuilding defeat art."""
+        if sheet_path == self.luna_sheet:
+            return
+        frames = self._luna_cache.get(sheet_path)
+        if frames is None:
+            frames = self._build_luna_frames(sheet_path)
+            self._luna_cache[sheet_path] = frames
+        for name, value in frames.items():
+            setattr(self, name, value)
+        self.luna_sheet = sheet_path
         self.defeat_background = pygame.Surface(WINDOW_SIZE)
         self.defeat_background.fill(COLOR_END_BG)
         self.defeat_background.blit(

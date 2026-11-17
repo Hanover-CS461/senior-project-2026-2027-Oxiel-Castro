@@ -24,6 +24,7 @@ from config import (
     COLOR_WHITE,
     FONT,
     FOUND_NOTICE_TIME,
+    LUNA_SHEETS,
     MAP_BATTLE_DELAY,
     MAP_WALK_TIME,
     MESSAGE_MAX_WIDTH,
@@ -54,6 +55,7 @@ class Game:
         self.clock = pygame.time.Clock()
         self.font = pygame.font.Font(FONT, 50)
         self.small_font = pygame.font.Font(FONT, 32)
+        self.panel_font = pygame.font.Font(FONT, 24)
         self.title_font = pygame.font.Font(FONT, 60)
         self.state = "menu"
         self.assets = Assets()
@@ -75,6 +77,11 @@ class Game:
         self.seed_box = pygame.Rect(20, 540, 200, 40)
         self.seed_text = ""
         self.seed_focus = False
+
+        self.sprite_panel = pygame.Rect(560, 210, 200, 290)
+        self.sprite_prev = Button(568, 370, 45, 45, "<", "sprite_prev")
+        self.sprite_next = Button(707, 370, 45, 45, ">", "sprite_next")
+        self.sprite_index = 0
 
         self.map_buttons = [
             Button(560, 380, 120, 40, BUILDINGS[0]["name"], BUILDINGS[0]["name"]),
@@ -152,6 +159,55 @@ class Game:
         label = self.seed_text if self.seed_text else "random"
         seed_surface = self.small_font.render(label, True, COLOR_WHITE)
         self.screen.blit(seed_surface, (self.seed_box.x + 8, self.seed_box.y + 4))
+        self.draw_sprite_panel()
+
+    def draw_sprite_panel(self):
+        """Draw the title-screen window for choosing Luna's sprite sheet."""
+        panel = pygame.Surface(self.sprite_panel.size, pygame.SRCALPHA)
+        pygame.draw.rect(panel, (0, 0, 0, 165), panel.get_rect(), border_radius=14)
+        pygame.draw.rect(
+            panel, (255, 255, 255, 90), panel.get_rect(), width=3, border_radius=14
+        )
+        self.screen.blit(panel, self.sprite_panel.topleft)
+        draw_outlined_text(
+            self.screen,
+            self.panel_font,
+            "Luna's coat",
+            (self.sprite_panel.x + 10, self.sprite_panel.y + 8),
+            backing=False,
+        )
+        frame = self.assets.luna_frames[0]
+        self.screen.blit(
+            frame,
+            (
+                self.sprite_panel.centerx - frame.get_width() // 2,
+                self.sprite_panel.y + 45,
+            ),
+        )
+        self.sprite_prev.draw(self.screen, self.panel_font)
+        self.sprite_next.draw(self.screen, self.panel_font)
+        name = LUNA_SHEETS[self.sprite_index]["name"]
+        name_width = self.panel_font.size(name)[0]
+        draw_outlined_text(
+            self.screen,
+            self.panel_font,
+            name,
+            (self.sprite_panel.centerx - name_width // 2, self.sprite_panel.y + 214),
+            backing=False,
+        )
+        counter = f"{self.sprite_index + 1} / {len(LUNA_SHEETS)}"
+        counter_width = self.panel_font.size(counter)[0]
+        draw_outlined_text(
+            self.screen,
+            self.panel_font,
+            counter,
+            (
+                self.sprite_panel.centerx - counter_width // 2,
+                self.sprite_panel.y + 248,
+            ),
+            color=COLOR_HINT,
+            backing=False,
+        )
 
     def draw_difficulty(self):
         """Draw the difficulty selection screen with the seed preview."""
@@ -397,12 +453,23 @@ class Game:
             self.seed_focus = True
         else:
             self.seed_focus = False
+        if self.sprite_prev.rect.collidepoint(pos):
+            self._cycle_luna_sheet(-1)
+            return
+        if self.sprite_next.rect.collidepoint(pos):
+            self._cycle_luna_sheet(1)
+            return
         for button in self.buttons:
             if button.rect.collidepoint(pos):
                 if button.action == "start":
                     self.state = "difficulty"
                 elif button.action == "quit":
                     self.running = False
+
+    def _cycle_luna_sheet(self, step):
+        """Switch to another sprite sheet and load its frames immediately."""
+        self.sprite_index = (self.sprite_index + step) % len(LUNA_SHEETS)
+        self.assets.set_luna_sheet(LUNA_SHEETS[self.sprite_index]["path"])
 
     def _click_difficulty(self, pos):
         """Start a run at the chosen difficulty, or go back to the title."""

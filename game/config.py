@@ -43,6 +43,16 @@ COLOR_HEAVY = (255, 200, 0)
 BACKGROUND_IMAGE = "game/assets/images/backgrounds/background.png"
 CAMPUS_IMAGE = "game/assets/images/backgrounds/campus.png"
 LUNA_SHEET = "game/assets/images/sprites/Luna2.png"
+
+# Selectable Luna sprite sheets. Every sheet must share Luna2's frame layout;
+# only the palette changes.
+LUNA_SHEETS = [
+    {"name": "Luna", "path": LUNA_SHEET},
+    {"name": "Larry", "path": "game/assets/images/sprites/black_luna.png"},
+    {"name": "Pickles", "path": "game/assets/images/sprites/gray_luna.png"},
+    {"name": "Mango", "path": "game/assets/images/sprites/orange_luna.png"},
+    {"name": "Princess Donut", "path": "game/assets/images/sprites/white_luna.png"},
+]
 VICTORY_IMAGE = "game/assets/images/backgrounds/w_end.2.png"
 BATTLE_BG = "game/assets/images/battle/battle_bg.png"
 FINAL_BOSS_BG = "game/assets/images/battle/final boss.png"

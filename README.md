@@ -35,6 +35,8 @@ All menus are mouse-driven.
 
 - **Seed box (title screen):** type digits, Backspace to delete, Enter to unfocus.
   Leave it empty for a random seed.
+- **Luna's coat (title screen):** click the arrows beside the preview to switch
+  Luna's sprite sheet.
 - **Intro scenes:** Space or Enter advances, Esc skips.
 
 ## How it's built
