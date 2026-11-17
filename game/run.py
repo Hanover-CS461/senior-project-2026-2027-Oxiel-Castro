@@ -10,6 +10,7 @@ import random
 
 from battle import ITEMS, Battle, Enemy, damage_move, status_move
 from config import (
+    DEFAULT_PLAYER_NAME,
     PLAYER_MAX_FOCUS,
     PLAYER_MAX_HP,
     PLAYER_START_AGILITY,
@@ -55,17 +56,17 @@ ARCHETYPE_MOVES = {
     "snake": {
         "light": ("Bite", 6, 10),
         "heavy": ("Constrict", 12, 17),
-        "status": ("Venom Spit", "poisoned", "player", "Luna is poisoned."),
+        "status": ("Venom Spit", "poisoned", "player", "{name} is poisoned."),
     },
     "spider_2": {
         "light": ("Nip", 4, 8),
         "heavy": ("Venom Bite", 10, 15),
-        "status": ("Sling Web", "webbed", "player", "Luna is webbed."),
+        "status": ("Sling Web", "webbed", "player", "{name} is webbed."),
     },
     "fly": {
         "light": ("Buzz", 5, 8),
         "heavy": ("Sting", 11, 15),
-        "status": ("Irritate", "intimidated", "player", "Luna is intimidated."),
+        "status": ("Irritate", "intimidated", "player", "{name} is intimidated."),
     },
 }
 
@@ -83,7 +84,7 @@ def moves_for(sprite, tier, boss=False):
     ]
     if boss and status != "intimidated":
         moves.append(
-            status_move("Snarl", "intimidated", "player", "Luna is intimidated.", 20)
+            status_move("Snarl", "intimidated", "player", "{name} is intimidated.", 20)
         )
     return moves
 
@@ -94,7 +95,7 @@ def final_boss_moves(tier):
         damage_move("Rend", 10, 15, 50, tier=tier),
         damage_move("Devour", 16, 22, 25, heavy=True, tier=tier),
         status_move("Hover", "prowl", "self", "its agility is up.", 10),
-        status_move("Snarl", "intimidated", "player", "Luna is intimidated.", 15),
+        status_move("Snarl", "intimidated", "player", "{name} is intimidated.", 15),
     ]
 
 
@@ -110,11 +111,12 @@ class Run:
     HEAL_BETWEEN = 10
     BETWEEN_FOCUS = 20
 
-    def __init__(self, seed=None, tier=DEFAULT_TIER):
+    def __init__(self, seed=None, tier=DEFAULT_TIER, player_name=DEFAULT_PLAYER_NAME):
         """Start a run, seeding the human's building for reproducibility."""
         self.seed = seed if seed is not None else random.randrange(1000000)
         self.rng = random.Random(self.seed)
         self.tier = tier
+        self.player_name = player_name
         self.player_hp = self.START_HP
         self.player_hp_max = self.MAX_HP
         self.focus = self.START_FOCUS
@@ -188,6 +190,7 @@ class Run:
             agility=self.agility,
             inventory=self.inventory,
             enemy=enemy,
+            player_name=self.player_name,
         )
 
     def end_battle(self, battle):

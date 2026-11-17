@@ -22,6 +22,7 @@ from config import (
     COLOR_HINT,
     COLOR_TITLE,
     COLOR_WHITE,
+    DEFAULT_PLAYER_NAME,
     FONT,
     FOUND_NOTICE_TIME,
     LUNA_SHEETS,
@@ -51,7 +52,7 @@ class Game:
         pygame.init()
         self.music = Music()
         self.screen = pygame.display.set_mode(WINDOW_SIZE)
-        pygame.display.set_caption("Luna - a Hanover College Mystery")
+        pygame.display.set_caption(f"{DEFAULT_PLAYER_NAME} - a Hanover College Mystery")
         self.clock = pygame.time.Clock()
         self.font = pygame.font.Font(FONT, 50)
         self.small_font = pygame.font.Font(FONT, 32)
@@ -82,6 +83,7 @@ class Game:
         self.sprite_prev = Button(568, 370, 45, 45, "<", "sprite_prev")
         self.sprite_next = Button(707, 370, 45, 45, ">", "sprite_next")
         self.sprite_index = 0
+        self.player_name = DEFAULT_PLAYER_NAME
 
         self.map_buttons = [
             Button(560, 380, 120, 40, BUILDINGS[0]["name"], BUILDINGS[0]["name"]),
@@ -140,7 +142,7 @@ class Game:
     def draw_menu(self):
         """Draw the title screen with background, title, and menu buttons."""
         self.screen.blit(self.assets.background, (0, 0))
-        title = "Luna - a Hanover College Mystery"
+        title = f"{self.player_name} - a Hanover College Mystery"
         title_surface = self.title_font.render(title, True, COLOR_BLACK)
         title_rect = title_surface.get_rect(center=(self.screen.get_width() // 2, 90))
         title_surface2 = self.title_font.render(title, True, COLOR_TITLE)
@@ -172,7 +174,7 @@ class Game:
         draw_outlined_text(
             self.screen,
             self.panel_font,
-            "Luna's coat",
+            f"{self.player_name}'s coat",
             (self.sprite_panel.x + 10, self.sprite_panel.y + 8),
             backing=False,
         )
@@ -405,7 +407,7 @@ class Game:
 
     def _begin_intro(self):
         """Create a fresh intro and switch to it, called at full black."""
-        self.story = Story()
+        self.story = Story(name=self.player_name)
         self.intro_start = pygame.time.get_ticks()
         self.state = "intro"
         self._preload_scene()
@@ -469,7 +471,9 @@ class Game:
     def _cycle_luna_sheet(self, step):
         """Switch to another sprite sheet and load its frames immediately."""
         self.sprite_index = (self.sprite_index + step) % len(LUNA_SHEETS)
+        self.player_name = LUNA_SHEETS[self.sprite_index]["name"]
         self.assets.set_luna_sheet(LUNA_SHEETS[self.sprite_index]["path"])
+        pygame.display.set_caption(f"{self.player_name} - a Hanover College Mystery")
 
     def _click_difficulty(self, pos):
         """Start a run at the chosen difficulty, or go back to the title."""
@@ -484,7 +488,7 @@ class Game:
     def _start_run(self, tier):
         """Create a run at the given difficulty and fade into the intro."""
         seed = int(self.seed_text) if self.seed_text.isdigit() else None
-        self.run_state = Run(seed=seed, tier=tier)
+        self.run_state = Run(seed=seed, tier=tier, player_name=self.player_name)
         self.map_luna_pos = pygame.Vector2(400, 70)
         self.map_move = None
         self.map_arrive_timer = 0
@@ -584,13 +588,15 @@ class Game:
     def _draw_victory(self):
         """Draw the victory screen over the ending artwork."""
         self.draw_end(
-            "Luna found Oxiel!",
+            f"{self.player_name} found Oxiel!",
             self.assets.scene_image(VICTORY_IMAGE),
         )
 
     def _draw_defeat(self):
         """Draw the defeat screen over Luna's box pose."""
-        self.draw_end("Luna was defeated.", self.assets.defeat_background)
+        self.draw_end(
+            f"{self.player_name} was defeated.", self.assets.defeat_background
+        )
 
     def run(self):
         """Run the main loop: handle events, draw the state, flip the display."""

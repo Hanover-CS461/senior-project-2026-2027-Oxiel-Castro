@@ -186,7 +186,8 @@ class BattleView:
         draw_outlined_text(
             self.screen,
             self.small_font,
-            f"Luna HP {self.battle.player_hp}/{self.battle.player_hp_max}",
+            f"{self.battle.player_name} HP "
+            f"{self.battle.player_hp}/{self.battle.player_hp_max}",
             (40, 30),
         )
         draw_outlined_text(
@@ -519,7 +520,9 @@ class BattleView:
                 "disabled": lambda b: (
                     self.turn_active or not self.battle.can_use_item(b.action)
                 ),
-                "tooltip": lambda b: ITEMS[b.action].get("desc"),
+                "tooltip": lambda b: (
+                    ITEMS[b.action].get("desc", "").format(name=self.battle.player_name)
+                ),
                 "refresh": lambda b: setattr(
                     b,
                     "text",

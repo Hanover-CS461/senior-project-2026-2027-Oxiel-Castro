@@ -9,6 +9,8 @@ before the next takes its place. A scene is revealed once its final line
 has been reached.
 """
 
+from config import DEFAULT_PLAYER_NAME
+
 SCENE_LINE_TIME = 3000
 
 SCENES = [
@@ -42,11 +44,16 @@ SCENES = [
 class Story:
     """Tracks which intro scene is showing and whether the intro is done."""
 
-    def __init__(self, scenes=None):
+    def __init__(self, scenes=None, name=DEFAULT_PLAYER_NAME):
         """Start at the first scene with nothing finished."""
         self.scenes = list(scenes) if scenes is not None else list(SCENES)
+        self.name = name
         self.index = 0
         self.finished = False
+
+    def _named(self, line):
+        """Swap Luna's name in a story line for the chosen character's name."""
+        return line.replace(DEFAULT_PLAYER_NAME, self.name)
 
     def scene(self):
         """Return the current scene dict, or None once the intro is over."""
@@ -57,7 +64,7 @@ class Story:
     def lines(self):
         """Return the current scene's lines, empty once finished."""
         scene = self.scene()
-        return scene["lines"] if scene else []
+        return [self._named(line) for line in scene["lines"]] if scene else []
 
     def line_count(self):
         """Return how many lines the current scene has."""

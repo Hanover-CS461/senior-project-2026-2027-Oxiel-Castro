@@ -10,6 +10,7 @@ import random
 
 from config import (
     DAMAGE_PER_TIER,
+    DEFAULT_PLAYER_NAME,
     PLAYER_MAX_FOCUS,
     PLAYER_MAX_HP,
     PLAYER_START_AGILITY,
@@ -163,7 +164,7 @@ ENEMY_MOVES = {
         damage_move("Buzz", 5, 8, 55),
         damage_move("Sting", 11, 15, 25, heavy=True),
         status_move("Hover", "prowl", "self", "its agility is up.", 10),
-        status_move("Irritate", "intimidated", "player", "Luna is intimidated.", 10),
+        status_move("Irritate", "intimidated", "player", "{name} is intimidated.", 10),
     ],
 }
 
@@ -173,13 +174,13 @@ ITEMS = {
         "name": "Catnip",
         "focus": 12,
         "status": "riled",
-        "desc": "Restores 12 focus and makes Luna Riled: 1.5x damage for two hits.",
+        "desc": "Restores 12 focus and makes {name} Riled: 1.5x damage for two hits.",
     },
     "milk": {
         "name": "Milk",
         "heal": 25,
         "status": "puffed",
-        "desc": "Restores 25 HP and makes Luna Puffed: halves the next hit.",
+        "desc": "Restores 25 HP and makes {name} Puffed: halves the next hit.",
     },
 }
 
@@ -290,8 +291,10 @@ class Battle:
         agility=PLAYER_START_AGILITY,
         inventory=None,
         enemy=None,
+        player_name=DEFAULT_PLAYER_NAME,
     ):
         """Start a battle, optionally with a given player state and enemy."""
+        self.player_name = player_name
         self.player_hp = player_hp
         self.player_hp_max = player_hp_max
         self.focus = focus
@@ -357,7 +360,7 @@ class Battle:
             return False
         self.focus -= self.attack_cost("pounce")
         self.pounce_charged = True
-        self.message = "Luna crouches low, ready to pounce!"
+        self.message = f"{self.player_name} crouches low, ready to pounce!"
         self.phase = "enemy"
         return True
 
@@ -404,7 +407,7 @@ class Battle:
         luna = {"actor": "luna", "move": move}
         enemy = self.enemy_step()
         if self._player_acts_first():
-            self._say("Luna strikes first!")
+            self._say(f"{self.player_name} strikes first!")
             return [luna, enemy]
         self._say(f"The {self.enemy.name} moves faster and strikes first!")
         return [enemy, luna]
@@ -465,28 +468,28 @@ class Battle:
     def _instinct_night_vision(self):
         """Reveal the enemy's intent for three rounds."""
         apply_status(self.statuses, "night_vision")
-        self._say("Luna's eyes sharpen, reading the enemy's intent!")
+        self._say(f"{self.player_name}'s eyes sharpen, reading the enemy's intent!")
 
     def _instinct_lick_wounds(self):
         """Lick wounds to recover HP, capped at max."""
         healed = min(self.LICK_HEAL, self.player_hp_max - self.player_hp)
         self.player_hp += healed
-        self._say(f"Luna licks her wounds and recovers {healed} HP!")
+        self._say(f"{self.player_name} licks her wounds and recovers {healed} HP!")
 
     def _instinct_yowl(self):
         """Intimidate the enemy so it takes 1.5x damage for two hits."""
         apply_status(self.enemy.statuses, "intimidated")
-        self._say(f"Luna yowls, intimidating the {self.enemy.name}!")
+        self._say(f"{self.player_name} yowls, intimidating the {self.enemy.name}!")
 
     def _instinct_nine_lives(self):
         """Grant Luna a one-time save from death this battle."""
         self.nine_lives = True
-        self._say("Luna steels herself with her Nine Lives!")
+        self._say(f"{self.player_name} steels herself with her Nine Lives!")
 
     def defend(self):
         """Puff up to halve the next incoming hit, then give the turn to the enemy."""
         apply_status(self.statuses, "puffed")
-        self.message = "Luna puffs up, halving the next attack!"
+        self.message = f"{self.player_name} puffs up, halving the next attack!"
         self.phase = "enemy"
 
     def can_use_item(self, name):
@@ -506,14 +509,18 @@ class Battle:
         if "heal" in item:
             healed = min(item["heal"], self.player_hp_max - self.player_hp)
             self.player_hp += healed
-            self._say(f"Luna eats {item['name'].lower()} and recovers {healed} HP!")
+            self._say(
+                f"{self.player_name} eats {item['name'].lower()} and recovers {healed} HP!"
+            )
         if "focus" in item:
             gained = min(item["focus"], self.MAX_FOCUS - self.focus)
             self.focus += gained
-            self._say(f"Luna munches catnip and regains {gained} focus!")
+            self._say(f"{self.player_name} munches catnip and regains {gained} focus!")
         if "status" in item:
             apply_status(self.statuses, item["status"])
-            self._say(f"Luna feels {STATUSES[item['status']]['name'].lower()}!")
+            self._say(
+                f"{self.player_name} feels {STATUSES[item['status']]['name'].lower()}!"
+            )
         self.phase = "enemy"
         return name
 
@@ -539,7 +546,7 @@ class Battle:
         if damage <= 0:
             return
         self.player_hp = max(0, self.player_hp - damage)
-        self._say(f"Poison deals {damage} damage to Luna!")
+        self._say(f"Poison deals {damage} damage to {self.player_name}!")
         if self.player_hp == 0:
             self.over = True
             self.won = False
@@ -552,7 +559,7 @@ class Battle:
                 self.statuses if move["target"] == "player" else self.enemy.statuses
             )
             apply_status(target, move["status"])
-            detail = move.get("message", "")
+            detail = move.get("message", "").format(name=self.player_name)
             self._say(f"The {self.enemy.name} uses {move['name']}! {detail}".strip())
         else:
             self._enemy_attack(move)
@@ -582,7 +589,8 @@ class Battle:
                 effective_agility(self.enemy.agility, self.enemy.statuses)
             ):
                 self._say(
-                    f"The {self.enemy.name} dodges Luna's {move['name'].lower()}!"
+                    f"The {self.enemy.name} dodges "
+                    f"{self.player_name}'s {move['name'].lower()}!"
                 )
                 continue
             damage = random.randint(*move["damage"])
@@ -592,7 +600,10 @@ class Battle:
             self.enemy.hp = max(0, self.enemy.hp - damage)
             total += damage
             self.hit_damages.append(damage)
-            self._say(f"Luna {move['verb']} the {self.enemy.name} for {damage} damage!")
+            self._say(
+                f"{self.player_name} {move['verb']} the {self.enemy.name} "
+                f"for {damage} damage!"
+            )
             if self.enemy.hp == 0:
                 self.over = True
                 self.won = True
@@ -610,19 +621,19 @@ class Battle:
         if not self.enemy.loot:
             return
         if random.random() >= self.steal_chance():
-            self._say("Luna finds nothing worth taking.")
+            self._say(f"{self.player_name} finds nothing worth taking.")
             return
         item = random.choice(self.enemy.loot)
         self.enemy.loot.remove(item)
         self.inventory[item] = self.inventory.get(item, 0) + 1
-        self._say(f"Luna snatches a {ITEMS[item]['name']}!")
+        self._say(f"{self.player_name} snatches a {ITEMS[item]['name']}!")
 
     def _enemy_attack(self, move):
         """Resolve the enemy's damage move, unless Luna dodges or Nine Lives saves her."""
         if random.random() < self.dodge_chance(
             effective_agility(self.agility, self.statuses)
         ):
-            self._say(f"Luna dodges the {self.enemy.name}'s attack!")
+            self._say(f"{self.player_name} dodges the {self.enemy.name}'s attack!")
             tick_statuses(self.statuses, "was_attacked")
             return
         outgoing = damage_multipliers(self.enemy.statuses)[0]
@@ -631,7 +642,7 @@ class Battle:
         if self.player_hp - damage <= 0 and self.nine_lives:
             self.nine_lives = False
             self.player_hp = 1
-            self._say("Nine Lives saves Luna from certain death!")
+            self._say(f"Nine Lives saves {self.player_name} from certain death!")
         else:
             self.player_hp = max(0, self.player_hp - damage)
             self._say(

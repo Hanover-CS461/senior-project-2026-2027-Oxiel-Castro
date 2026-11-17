@@ -43,6 +43,7 @@ COLOR_HEAVY = (255, 200, 0)
 BACKGROUND_IMAGE = "game/assets/images/backgrounds/background.png"
 CAMPUS_IMAGE = "game/assets/images/backgrounds/campus.png"
 LUNA_SHEET = "game/assets/images/sprites/Luna2.png"
+DEFAULT_PLAYER_NAME = "Luna"
 
 # Selectable Luna sprite sheets. Every sheet must share Luna2's frame layout;
 # only the palette changes.
